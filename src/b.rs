@@ -162,7 +162,7 @@ pub unsafe fn scope_pop(vars: *mut Array<Array<Var>>) {
 
 pub unsafe fn find_var_near(vars: *const Array<Var>, name: *const c_char) -> *const Var {
     for i in 0..(*vars).count {
-        let var = (*vars).items.add(i);
+        let var = (*vars).at(i);
         if strcmp((*var).name, name) == 0 {
             return var
         }
@@ -173,7 +173,7 @@ pub unsafe fn find_var_near(vars: *const Array<Var>, name: *const c_char) -> *co
 pub unsafe fn find_var_deep(vars: *const Array<Array<Var>>, name: *const c_char) -> *const Var {
     let mut i = (*vars).count;
     while i > 0 {
-        let var = find_var_near((*vars).items.add(i-1), name);
+        let var = find_var_near((*vars).at(i-1), name);
         if !var.is_null() {
             return var;
         }
@@ -215,7 +215,7 @@ pub struct Goto {
 
 pub unsafe fn find_goto_label(labels: *const Array<GotoLabel>, name: *const c_char) -> *const GotoLabel {
     for i in 0..(*labels).count {
-        let label = (*labels).items.add(i);
+        let label = (*labels).at(i);
         if strcmp((*label).name, name) == 0 {
             return label
         }
@@ -657,7 +657,7 @@ pub unsafe fn compile_block(l: *mut Lexer, c: *mut Compiler) -> Option<()> {
 
 pub unsafe fn name_declare_if_not_exists(names: *mut Array<*const c_char>, name: *const c_char) {
     for i in 0..(*names).count {
-        if strcmp(*(*names).items.add(i), name) == 0 {
+        if strcmp(*(*names).at(i), name) == 0 {
             return;
         }
     }
@@ -1034,14 +1034,14 @@ pub unsafe fn compile_program(l: *mut Lexer, c: *mut Compiler) -> Option<()> {
                         scope_pop(&mut (*c).vars); // end function scope
 
                         for i in 0..(*c).func_gotos.count {
-                            let used_label = *(*c).func_gotos.items.add(i);
+                            let used_label = *(*c).func_gotos.at(i);
                             let existing_label = find_goto_label(&(*c).func_goto_labels, used_label.name);
                             if existing_label.is_null() {
                                 diagf!(used_label.loc, c!("ERROR: label `%s` used but not defined\n"), used_label.name);
                                 bump_error_count(c)?;
                                 continue;
                             }
-                            (*(*c).func_body.items.add(used_label.addr)).opcode = Op::JmpLabel {label: (*existing_label).label};
+                            (*(*c).func_body.at(used_label.addr)).opcode = Op::JmpLabel {label: (*existing_label).label};
                         }
 
                         da_append(&mut (*c).program.funcs, Func {
@@ -1294,7 +1294,7 @@ pub unsafe fn main(mut argc: i32, mut argv: *mut*mut c_char) -> Option<()> {
     if (*linker).count > 0 {
         let mut s: Shlex = zeroed();
         for i in 0..(*linker).count {
-            shlex_append_quoted(&mut s, *(*linker).items.add(i));
+            shlex_append_quoted(&mut s, *(*linker).at(i));
         }
         let codegen_arg = temp_sprintf(c!("link-args=%s"), shlex_join(&mut s));
         da_append(codegen_args, codegen_arg);
@@ -1325,7 +1325,7 @@ pub unsafe fn main(mut argc: i32, mut argv: *mut*mut c_char) -> Option<()> {
 
         let mut sb: String_Builder = zeroed();
         for i in 0..input_paths.count {
-            let input_path = *input_paths.items.add(i);
+            let input_path = *input_paths.at(i);
             if i > 0 { sb_appendf(&mut sb, c!(", ")); }
             sb_appendf(&mut sb, c!("%s"), input_path);
         }
@@ -1339,18 +1339,18 @@ pub unsafe fn main(mut argc: i32, mut argv: *mut*mut c_char) -> Option<()> {
         scope_push(&mut c.vars);          // begin global scope
 
         for i in 0..input_paths.count {
-            let input_path = *input_paths.items.add(i);
+            let input_path = *input_paths.at(i);
 
             input.count = 0;
             read_entire_file(input_path, &mut input)?;
 
-            let mut l: Lexer = lexer::new(input_path, input.items, input.items.add(input.count), *historical);
+            let mut l: Lexer = lexer::new(input_path, input.items, input.at(input.count), *historical);
 
             compile_program(&mut l, &mut c)?;
         }
 
         for i in 0..c.used_funcs.count {
-            let used_global = *c.used_funcs.items.add(i);
+            let used_global = *c.used_funcs.at(i);
 
             if find_var_deep(&mut c.vars, used_global.name).is_null() {
                 diagf!(used_global.loc, c!("ERROR: could not find name `%s`\n"), used_global.name);

@@ -26,7 +26,7 @@ pub unsafe fn aggregate_to_libb(folder_path: *const c_char) -> Option<()> {
     if !read_entire_dir(folder_path, &mut children) { return None; }
 
     for i in 0..children.count {
-        let child = *children.items.add(i);
+        let child = *children.at(i);
         if *child == '.' as c_char { continue; }
         let child_path = temp_sprintf(c!("%s/%s"), folder_path, child);
         if temp_strip_suffix(child, c!(".b")).is_none() {
@@ -57,7 +57,7 @@ pub unsafe fn reset_libb() -> Option<()> {
     if !read_entire_dir(folder_path, &mut children) { return None; }
 
     for i in 0..children.count {
-        let child = *children.items.add(i);
+        let child = *children.at(i);
         if strcmp(child, c!(".")) == 0 { continue; }
         if strcmp(child, c!("..")) == 0 { continue; }
         let child_path = temp_sprintf(c!("%s/%s"), folder_path, child);
@@ -83,7 +83,7 @@ pub unsafe fn main(mut _argc: i32, mut _argv: *mut*mut c_char) -> Option<()> {
     let mut sb: String_Builder = zeroed();
     sb_appendf(&mut sb, c!("codegens! {\n"));
     for i in 0..children.count {
-        let child = *children.items.add(i);
+        let child = *children.at(i);
         if *child == '.' as c_char { continue; }
         if strcmp(child, c!("mod.rs")) == 0 { continue; }
         // TODO: skip the modules that have invalid Rust names.

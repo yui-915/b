@@ -228,7 +228,7 @@ pub unsafe fn generate_function(name: *const c_char, name_loc: Loc, func_index: 
                 let reg_args_count = cmp::min(args.count, registers.len());
                 for i in 0..reg_args_count {
                     let reg = (*registers)[i];
-                    load_arg_to_reg(*args.items.add(i), reg, output, os);
+                    load_arg_to_reg(*args.at(i), reg, output, os);
                 }
 
                 let stack_args_count = args.count - reg_args_count;
@@ -236,7 +236,7 @@ pub unsafe fn generate_function(name: *const c_char, name_loc: Loc, func_index: 
                 if stack_args_count > 0 {
                     sb_appendf(output, c!("    subq $%zu, %%rsp\n"), stack_args_size);
                     for i in 0..stack_args_count {
-                        load_arg_to_reg(*args.items.add(reg_args_count + i), c!("rax"), output, os);
+                        load_arg_to_reg(*args.at(reg_args_count + i), c!("rax"), output, os);
                         sb_appendf(output, c!("    movq %%rax, %zu(%%rsp)\n"), i * 8);
                     }
                 }
@@ -265,7 +265,7 @@ pub unsafe fn generate_function(name: *const c_char, name_loc: Loc, func_index: 
             }
             Op::Asm { stmts } => {
                 for i in 0..stmts.count {
-                    let stmt = *stmts.items.add(i);
+                    let stmt = *stmts.at(i);
                     sb_appendf(output, c!("    %s\n"), stmt.line);
                 }
             }
@@ -354,7 +354,7 @@ pub unsafe fn generate_asm_funcs(output: *mut String_Builder, asm_funcs: *const 
             }
         }
         for j in 0..asm_func.body.count {
-            let stmt = *asm_func.body.items.add(j);
+            let stmt = *asm_func.body.at(j);
             sb_appendf(output, c!("    %s\n"), stmt.line);
         }
     }
@@ -386,7 +386,7 @@ pub unsafe fn generate_globals(output: *mut String_Builder, globals: *const [Glo
                 if j > 0 {
                     sb_appendf(output, c!(","));
                 }
-                match *global.values.items.add(j) {
+                match *global.values.at(j) {
                     ImmediateValue::Literal(lit)       => sb_appendf(output, c!("0x%llX"), lit),
                     ImmediateValue::Name(name)         => match os {
                         Os::Linux | Os::Windows => sb_appendf(output, c!("%s"), name),
@@ -558,7 +558,7 @@ pub unsafe fn generate_debuginfo(output: *mut String_Builder, funcs: Array<Func>
 
 pub unsafe fn generate_globals_debuginfo(output: *mut String_Builder, globals: Array<Global>, os: Os) {
     for i in 0..globals.count {
-        let global = *globals.items.add(i);
+        let global = *globals.at(i);
         sb_appendf(output, c!(".uleb128 %lld\n"), dwarf::TEMPLATE_variable);
         sb_appendf(output, c!(".string \"%s\"\n"), global.name);
         sb_appendf(output, c!(".long debug_info_word_type_offset\n"));
@@ -585,7 +585,7 @@ pub unsafe fn sleb128_length(mut n: i64) -> u64 {
 
 pub unsafe fn generate_funcs_debuginfo(output: *mut String_Builder, funcs: Array<Func>, os: Os) {
     for i in 0..funcs.count {
-        let func = *funcs.items.add(i);
+        let func = *funcs.at(i);
 
         sb_appendf(output, c!(".uleb128 %lld\n"), dwarf::TEMPLATE_function);
         sb_appendf(output, c!(".string \"%s\"\n"), func.name);
@@ -598,7 +598,7 @@ pub unsafe fn generate_funcs_debuginfo(output: *mut String_Builder, funcs: Array
         sb_appendf(output, c!(".byte %lld\n"), dwarf::OP_call_frame_cfa);
 
         for j in 0..func.scope_events.count {
-            match *func.scope_events.items.add(j) {
+            match *func.scope_events.at(j) {
                 ScopeEvent::Declare { name, index } => {
                     sb_appendf(output, c!(".uleb128 %lld\n"), dwarf::TEMPLATE_variable);
                     sb_appendf(output, c!(".string \"%s\"\n"), name);

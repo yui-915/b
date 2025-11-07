@@ -239,7 +239,7 @@ pub struct External {
 
 pub unsafe fn add_external(name: *const c_char, addr: u16, loc: Loc, asm: *mut Assembler) -> Option<()> {
     for i in 0..(*asm).externals.count {
-        let ext = *(*asm).externals.items.add(i);
+        let ext = *(*asm).externals.at(i);
         if strcmp(ext.name, name) == 0 {
             diagf!(loc,     c!("ERROR: redefinition of name `%s`\n"), name);
             diagf!(ext.loc, c!("INFO: previously defined here\n"));
@@ -273,7 +273,7 @@ pub unsafe fn write_word(out: *mut String_Builder, word: u16) {
     write_byte(out, (word >> 8) as u8);
 }
 pub unsafe fn write_byte_at(out: *mut String_Builder, byte: u8, addr: u16) {
-    *((*out).items.add(addr as usize)) = byte as c_char;
+    *((*out).at(addr as usize)) = byte as c_char;
 }
 pub unsafe fn write_word_at(out: *mut String_Builder, word: u16, addr: u16) {
     write_byte_at(out, word as u8, addr);
@@ -326,10 +326,10 @@ pub unsafe fn create_address_label_here(out: *const String_Builder, asm: *mut As
 
 // TODO: inform the caller, that `addr' is relative to code_start
 pub unsafe fn link_address_label(label: usize, addr: u16, asm: *mut Assembler) {
-    *(*asm).addresses.items.add(label) = addr;
+    *(*asm).addresses.at(label) = addr;
 }
 pub unsafe fn link_address_label_here(label: usize, out: *const String_Builder, asm: *mut Assembler) {
-    *(*asm).addresses.items.add(label) = (*out).count as u16;
+    *(*asm).addresses.at(label) = (*out).count as u16;
 }
 
 pub unsafe fn load_auto_var(out: *mut String_Builder, index: usize, asm: *mut Assembler) {
@@ -861,8 +861,8 @@ pub unsafe fn generate_function(name: *const c_char, loc: Loc, params_count: usi
     }
 
     for i in 0..body.len() {
-        let addr_idx = *op_addresses.items.add(i);
-        *(*asm).addresses.items.add(addr_idx) = (*out).count as u16; // update op address
+        let addr_idx = *op_addresses.at(i);
+        *(*asm).addresses.at(addr_idx) = (*out).count as u16; // update op address
 
         let op = (*body)[i];
         match op.opcode {
@@ -874,7 +874,7 @@ pub unsafe fn generate_function(name: *const c_char, loc: Loc, params_count: usi
 
                 // jump to ret statement
                 instr0(out, JMP, ABS);
-                add_reloc(out, RelocationKind::Address{idx: *op_addresses.items.add(body.len()),
+                add_reloc(out, RelocationKind::Address{idx: *op_addresses.at(body.len()),
                                                        relative: false}, asm);
             },
             Op::Store {index, arg} => {
@@ -1284,7 +1284,7 @@ pub unsafe fn generate_function(name: *const c_char, loc: Loc, params_count: usi
                 }
 
                 for i in (0..args.count).rev() {
-                    load_arg(*args.items.add(i), op.loc, out, asm);
+                    load_arg(*args.at(i), op.loc, out, asm);
                     // first arg in Y:A to be compatible with wozmon routines
                     if i != 0 {
                         push16(out, asm);
@@ -1324,7 +1324,7 @@ pub unsafe fn generate_function(name: *const c_char, loc: Loc, params_count: usi
             },
             Op::Asm {stmts} => {
                 for i in 0..stmts.count {
-                    let stmt = *stmts.items.add(i);
+                    let stmt = *stmts.at(i);
                     assemble_statement(out, stmt.line, stmt.loc, asm);
                 }
             },
@@ -1382,8 +1382,8 @@ pub unsafe fn generate_function(name: *const c_char, loc: Loc, params_count: usi
     instr8(out, LDA, IMM, 0);
     instr(out, TAY);
 
-    let addr_idx = *op_addresses.items.add(body.len());
-    *(*asm).addresses.items.add(addr_idx) = (*out).count as u16;
+    let addr_idx = *op_addresses.at(body.len());
+    *(*asm).addresses.at(addr_idx) = (*out).count as u16;
 
     if stack_size > 0 {
         // seriously... we don't have enough registers to save A to...
@@ -1402,7 +1402,7 @@ pub unsafe fn generate_funcs(out: *mut String_Builder, funcs: *const [Func], asm
 
 pub unsafe fn apply_relocations(out: *mut String_Builder, data_start: u16, asm: *mut Assembler) {
     'reloc_loop: for i in 0..(*asm).relocs.count {
-        let reloc = *(*asm).relocs.items.add(i);
+        let reloc = *(*asm).relocs.at(i);
         let caddr = reloc.addr;
         match reloc.kind {
             RelocationKind::DataOffset{off, byte} => {
@@ -1415,7 +1415,7 @@ pub unsafe fn apply_relocations(out: *mut String_Builder, data_start: u16, asm: 
             },
             RelocationKind::Label{func_name: name, label} => {
                 for i in 0..(*asm).op_labels.count {
-                    let op_label = *(*asm).op_labels.items.add(i);
+                    let op_label = *(*asm).op_labels.at(i);
                     if strcmp(op_label.func_name, name) == 0 && op_label.label == label {
                         write_word_at(out, (*asm).code_start + op_label.addr, caddr);
                         continue 'reloc_loop;
@@ -1426,7 +1426,7 @@ pub unsafe fn apply_relocations(out: *mut String_Builder, data_start: u16, asm: 
             },
             RelocationKind::External{name, offset, byte, relative} => {
                 for i in 0..(*asm).externals.count {
-                    let label = *(*asm).externals.items.add(i);
+                    let label = *(*asm).externals.at(i);
                     if strcmp(label.name, name) == 0 {
                         let faddr = (*asm).code_start + label.addr + offset as u16;
                         if relative {
@@ -1446,13 +1446,13 @@ pub unsafe fn apply_relocations(out: *mut String_Builder, data_start: u16, asm: 
                 unreachable!();
             },
             RelocationKind::Address{idx, relative: true} => {
-                let jaddr = *(*asm).addresses.items.add(idx);
+                let jaddr = *(*asm).addresses.at(idx);
                 let rel: i16 = jaddr as i16 - (caddr + 1) as i16;
                 assert!(rel < 128 && rel >= -128);
                 write_byte_at(out, rel as u8, caddr);
             },
             RelocationKind::Address{idx, relative: false} => {
-                let saddr = *(*asm).addresses.items.add(idx) + (*asm).code_start;
+                let saddr = *(*asm).addresses.at(idx) + (*asm).code_start;
                 write_word_at(out, saddr, caddr);
             },
         }
@@ -1500,7 +1500,7 @@ pub unsafe fn generate_globals(out: *mut String_Builder, globals: *mut [Global],
             link_address_label_here(address, out, asm);
         }
         for j in 0..global.values.count {
-            match *global.values.items.add(j) {
+            match *global.values.at(j) {
                 ImmediateValue::Literal(lit) => write_word(out, lit as u16),
                 ImmediateValue::Name(name) =>
                     add_reloc(out, RelocationKind::External{name, byte: Byte::Both, offset: 0, relative: false}, asm),
@@ -1538,7 +1538,7 @@ pub unsafe fn generate_asm_funcs(out: *mut String_Builder, asm_funcs: *const [As
         add_external(asm_func.name, fun_addr, asm_func.name_loc, asm);
 
         for j in 0..asm_func.body.count {
-            let stmt = *asm_func.body.items.add(j);
+            let stmt = *asm_func.body.at(j);
             assemble_statement(out, stmt.line, stmt.loc, asm);
         }
     }

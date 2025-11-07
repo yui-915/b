@@ -57,7 +57,7 @@ pub enum PatchKind {
 
 pub unsafe fn get_or_create_label_by_name(a: *mut Assembler, name: *const c_char) -> usize {
     for i in 0..(*a).named_labels.count {
-        let named_label = (*a).named_labels.items.add(i);
+        let named_label = (*a).named_labels.at(i);
         if strcmp((*named_label).name, name) == 0 {
             return (*named_label).label;
         }
@@ -75,16 +75,16 @@ pub unsafe fn create_label(a: *mut Assembler) -> usize {
 }
 
 pub unsafe fn link_label(a: *mut Assembler, label: usize, addr: usize) {
-    *(*a).resolved_addresses.items.add(label) = addr as u16;
+    *(*a).resolved_addresses.at(label) = addr as u16;
 }
 
 pub unsafe fn apply_patches(output: *mut String_Builder, a: *mut Assembler) -> Option<()> {
     for i in 0..(*a).patches.count {
-        let patch = *(*a).patches.items.add(i);
-        let addr = *(*a).resolved_addresses.items.add(patch.label);
+        let patch = *(*a).patches.at(i);
+        let addr = *(*a).resolved_addresses.at(patch.label);
         if addr == 0 {
             for j in 0..(*a).named_labels.count {
-                let named_label = *(*a).named_labels.items.add(j);
+                let named_label = *(*a).named_labels.at(j);
                 if named_label.label == patch.label {
                     log(Log_Level::ERROR, c!("uxn: Label '%s' was never linked"), named_label.name);
                     return None;
@@ -100,7 +100,7 @@ pub unsafe fn apply_patches(output: *mut String_Builder, a: *mut Assembler) -> O
             PatchKind::UpperRelative => ((addr + offset).wrapping_sub(patch.addr).wrapping_sub(2) >> 8) & 0xff,
             PatchKind::LowerRelative => ((addr + offset).wrapping_sub(patch.addr).wrapping_sub(1)) & 0xff,
         };
-        *(*output).items.add(patch.addr as usize) = byte as c_char;
+        *(*output).at(patch.addr as usize) = byte as c_char;
     }
     Some(())
 }
@@ -237,7 +237,7 @@ pub unsafe fn generate_program(
     // call main or _start, _start having a priority
     let mut main_proc = c!("main");
     for i in 0..(*program).funcs.count {
-        let name = (*(*program).funcs.items.add(i)).name;
+        let name = (*(*program).funcs.at(i)).name;
         if strcmp(name, c!("_start")) == 0 {
             main_proc = c!("_start");
             break;
@@ -595,7 +595,7 @@ pub unsafe fn generate_function(name: *const c_char, name_loc: Loc, params_count
                     missingf!(op.loc, c!("Too many function call arguments. We support only %d but %zu were provided\n"), MAX_ARGS, args.count);
                 }
                 for i in 0..args.count {
-                    load_arg(*args.items.add(i), op.loc, output, assembler);
+                    load_arg(*args.at(i), op.loc, output, assembler);
                     write_lit_stz2(output, FIRST_ARG + (i as u8) * 2)
                 }
 
@@ -607,18 +607,18 @@ pub unsafe fn generate_function(name: *const c_char, name_loc: Loc, params_count
                 process_asm_statements(output, da_slice(stmts), assembler)?;
             }
             Op::Label {label} => {
-                link_label(assembler, *labels.items.add(label), (*output).count);
+                link_label(assembler, *labels.at(label), (*output).count);
             }
             Op::JmpLabel {label} => {
                 write_op(output, UxnOp::JMI);
-                write_label_rel(output, *labels.items.add(label), assembler, 0);
+                write_label_rel(output, *labels.at(label), assembler, 0);
             }
             Op::JmpIfNotLabel {label, arg} => {
                 load_arg(arg, op.loc, output, assembler);
                 write_lit2(output, 0);
                 write_op(output, UxnOp::EQU2);
                 write_op(output, UxnOp::JCI);
-                write_label_rel(output, *labels.items.add(label), assembler, 0);
+                write_label_rel(output, *labels.at(label), assembler, 0);
             }
             Op::Return {arg} => {
                 // Put return value in the FIRST_ARG
@@ -858,7 +858,7 @@ pub unsafe fn generate_globals(output: *mut String_Builder, globals: *const [Glo
             link_label(assembler, label, (*output).count);
         }
         for j in 0..global.values.count {
-            match *global.values.items.add(j) {
+            match *global.values.at(j) {
                 ImmediateValue::Literal(lit) => {
                     write_short(output, lit as u16);
                 }

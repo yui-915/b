@@ -1,6 +1,7 @@
 use core::ffi::*;
 use core::slice;
 use crate::crust::*;
+#[allow(unused)]
 use crate::enum_with_order;
 
 #[repr(C)]
@@ -11,17 +12,25 @@ pub struct Array<T> {
     pub capacity: usize,
 }
 
-pub unsafe fn da_last<T>(xs: *const Array<T>) -> Option<*const T> {
+impl<T> Array<T> {
+    pub unsafe fn at(self, index: usize) -> *mut T {
+        // Not sure whether this method should do bounds checking or not
+        // since there's a common-ish use case of `xs.at(xs.count)`
+        self.items.add(index)
+    }
+}
+
+pub unsafe fn da_last<T: Copy>(xs: *const Array<T>) -> Option<*const T> {
     if (*xs).count > 0 {
-        Some((*xs).items.add((*xs).count-1))
+        Some((*xs).at((*xs).count-1))
     } else {
         None
     }
 }
 
-pub unsafe fn da_last_mut<T>(xs: *mut Array<T>) -> Option<*mut T> {
+pub unsafe fn da_last_mut<T: Copy>(xs: *mut Array<T>) -> Option<*mut T> {
     if (*xs).count > 0 {
-        Some((*xs).items.add((*xs).count-1))
+        Some((*xs).at((*xs).count-1))
     } else {
         None
     }
@@ -40,7 +49,7 @@ pub unsafe fn da_slice<T>(xs: Array<T>) -> *mut [T] {
     }
 }
 
-pub unsafe fn da_append<T>(xs: *mut Array<T>, item: T) {
+pub unsafe fn da_append<T: Copy>(xs: *mut Array<T>, item: T) {
     if (*xs).count >= (*xs).capacity {
         if (*xs).capacity == 0 {
             (*xs).capacity = 256;
@@ -51,9 +60,9 @@ pub unsafe fn da_append<T>(xs: *mut Array<T>, item: T) {
 
         // ZERO INITILIZE NEWLY ALLOCATED MEMORY
         let size = size_of::<T>() * ((*xs).capacity - (*xs).count);
-        libc::memset((*xs).items.add((*xs).count) as _ , 0, size);
+        libc::memset((*xs).at((*xs).count) as _ , 0, size);
     }
-    *((*xs).items.add((*xs).count)) = item;
+    *((*xs).at((*xs).count)) = item;
     (*xs).count += 1;
 }
 

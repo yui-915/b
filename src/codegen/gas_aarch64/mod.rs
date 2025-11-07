@@ -335,7 +335,7 @@ pub unsafe fn generate_function(name: *const c_char, _name_loc: Loc, params_coun
                 };
                 for i in 0..reg_args_count {
                     let reg = (*REGISTERS)[i];
-                    load_arg_to_reg(*args.items.add(i), reg, output, op.loc, os);
+                    load_arg_to_reg(*args.at(i), reg, output, op.loc, os);
                 }
 
                 let stack_args_count = args.count - reg_args_count;
@@ -343,7 +343,7 @@ pub unsafe fn generate_function(name: *const c_char, _name_loc: Loc, params_coun
                 sb_appendf(output, c!("    sub sp, sp, %zu\n"), stack_args_size);
                 for i in reg_args_count..args.count {
                     let above_index = i - reg_args_count;
-                    load_arg_to_reg(*args.items.add(i), c!("x8"), output, op.loc, os);
+                    load_arg_to_reg(*args.at(i), c!("x8"), output, op.loc, os);
                     sb_appendf(output, c!("    str x8, [sp, %zu]\n"), above_index*8);
                 }
 
@@ -354,7 +354,7 @@ pub unsafe fn generate_function(name: *const c_char, _name_loc: Loc, params_coun
             },
             Op::Asm {stmts} => {
                 for i in 0..stmts.count {
-                    let stmt = *stmts.items.add(i);
+                    let stmt = *stmts.at(i);
                     sb_appendf(output, c!("    %s\n"), stmt.line);
                 }
             }
@@ -442,7 +442,7 @@ pub unsafe fn generate_globals(output: *mut String_Builder, globals: *const [Glo
                 sb_appendf(output, c!("    .quad .+8\n"), global.name);
             }
             for j in 0..global.values.count {
-                match *global.values.items.add(j) {
+                match *global.values.at(j) {
                     ImmediateValue::Literal(lit) => {
                         sb_appendf(output, c!("    .quad %zu\n"), lit);
                     }
@@ -486,7 +486,7 @@ pub unsafe fn generate_asm_funcs(output: *mut String_Builder, asm_funcs: *const 
             Os::Windows => missingf!(asm_func.name_loc, c!("AArch64 is not supported on windows\n")),
         }
         for j in 0..asm_func.body.count {
-            let stmt = *asm_func.body.items.add(j);
+            let stmt = *asm_func.body.at(j);
             sb_appendf(output, c!("    %s\n"), stmt.line);
         }
     }
