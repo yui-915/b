@@ -264,8 +264,7 @@ pub unsafe fn generate_function(name: *const c_char, name_loc: Loc, func_index: 
                 sb_appendf(output, c!("    movq %%rax, -%zu(%%rbp)\n"), result * 8);
             }
             Op::Asm { stmts } => {
-                for i in 0..stmts.count {
-                    let stmt = *stmts.at(i);
+                for stmt in stmts.iter() {
                     sb_appendf(output, c!("    %s\n"), stmt.line);
                 }
             }
@@ -353,8 +352,7 @@ pub unsafe fn generate_asm_funcs(output: *mut String_Builder, asm_funcs: *const 
                 sb_appendf(output, c!("_%s:\n"), asm_func.name);
             }
         }
-        for j in 0..asm_func.body.count {
-            let stmt = *asm_func.body.at(j);
+        for stmt in asm_func.body.iter() {
             sb_appendf(output, c!("    %s\n"), stmt.line);
         }
     }
@@ -382,11 +380,11 @@ pub unsafe fn generate_globals(output: *mut String_Builder, globals: *const [Glo
 
         if global.values.count > 0 {
             sb_appendf(output, c!(".quad "));
-            for j in 0..global.values.count {
+            for (j, value) in global.values.iter().enumerate() {
                 if j > 0 {
                     sb_appendf(output, c!(","));
                 }
-                match *global.values.at(j) {
+                match value {
                     ImmediateValue::Literal(lit)       => sb_appendf(output, c!("0x%llX"), lit),
                     ImmediateValue::Name(name)         => match os {
                         Os::Linux | Os::Windows => sb_appendf(output, c!("%s"), name),
@@ -557,8 +555,7 @@ pub unsafe fn generate_debuginfo(output: *mut String_Builder, funcs: Array<Func>
 }
 
 pub unsafe fn generate_globals_debuginfo(output: *mut String_Builder, globals: Array<Global>, os: Os) {
-    for i in 0..globals.count {
-        let global = *globals.at(i);
+    for global in globals.iter() {
         sb_appendf(output, c!(".uleb128 %lld\n"), dwarf::TEMPLATE_variable);
         sb_appendf(output, c!(".string \"%s\"\n"), global.name);
         sb_appendf(output, c!(".long debug_info_word_type_offset\n"));
@@ -584,9 +581,7 @@ pub unsafe fn sleb128_length(mut n: i64) -> u64 {
 }
 
 pub unsafe fn generate_funcs_debuginfo(output: *mut String_Builder, funcs: Array<Func>, os: Os) {
-    for i in 0..funcs.count {
-        let func = *funcs.at(i);
-
+    for func in funcs.iter() {
         sb_appendf(output, c!(".uleb128 %lld\n"), dwarf::TEMPLATE_function);
         sb_appendf(output, c!(".string \"%s\"\n"), func.name);
         sb_appendf(output, c!(".quad %s\n"), func.name);
@@ -597,8 +592,8 @@ pub unsafe fn generate_funcs_debuginfo(output: *mut String_Builder, funcs: Array
         sb_appendf(output, c!(".uleb128 0x1\n")); // .byte (1) = 1
         sb_appendf(output, c!(".byte %lld\n"), dwarf::OP_call_frame_cfa);
 
-        for j in 0..func.scope_events.count {
-            match *func.scope_events.at(j) {
+        for event in func.scope_events.iter() {
+            match event {
                 ScopeEvent::Declare { name, index } => {
                     sb_appendf(output, c!(".uleb128 %lld\n"), dwarf::TEMPLATE_variable);
                     sb_appendf(output, c!(".string \"%s\"\n"), name);

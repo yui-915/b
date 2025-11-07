@@ -353,8 +353,7 @@ pub unsafe fn generate_function(name: *const c_char, _name_loc: Loc, params_coun
                 sb_appendf(output, c!("    add sp, sp, %zu\n"), stack_args_size);
             },
             Op::Asm {stmts} => {
-                for i in 0..stmts.count {
-                    let stmt = *stmts.at(i);
+                for stmt in stmts.iter() {
                     sb_appendf(output, c!("    %s\n"), stmt.line);
                 }
             }
@@ -441,8 +440,8 @@ pub unsafe fn generate_globals(output: *mut String_Builder, globals: *const [Glo
             if global.is_vec {
                 sb_appendf(output, c!("    .quad .+8\n"), global.name);
             }
-            for j in 0..global.values.count {
-                match *global.values.at(j) {
+            for value in global.values.iter() {
+                match value {
                     ImmediateValue::Literal(lit) => {
                         sb_appendf(output, c!("    .quad %zu\n"), lit);
                     }
@@ -485,8 +484,7 @@ pub unsafe fn generate_asm_funcs(output: *mut String_Builder, asm_funcs: *const 
             }
             Os::Windows => missingf!(asm_func.name_loc, c!("AArch64 is not supported on windows\n")),
         }
-        for j in 0..asm_func.body.count {
-            let stmt = *asm_func.body.at(j);
+        for stmt in asm_func.body.iter() {
             sb_appendf(output, c!("    %s\n"), stmt.line);
         }
     }

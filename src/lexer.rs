@@ -597,9 +597,9 @@ pub unsafe fn get_token(l: *mut Lexer) -> Option<()> {
             return None;
         }
         (*l).int_number = 0;
-        for i in 0..(*l).string_storage.count {
+        for char in (*l).string_storage.iter() {
             (*l).int_number *= 0x100;
-            (*l).int_number += *(*l).string_storage.at(i) as u64;
+            (*l).int_number += char as u64;
         }
         return Some(());
     }

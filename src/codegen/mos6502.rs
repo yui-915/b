@@ -238,8 +238,7 @@ pub struct External {
 }
 
 pub unsafe fn add_external(name: *const c_char, addr: u16, loc: Loc, asm: *mut Assembler) -> Option<()> {
-    for i in 0..(*asm).externals.count {
-        let ext = *(*asm).externals.at(i);
+    for ext in (*asm).externals.iter() {
         if strcmp(ext.name, name) == 0 {
             diagf!(loc,     c!("ERROR: redefinition of name `%s`\n"), name);
             diagf!(ext.loc, c!("INFO: previously defined here\n"));
@@ -1283,8 +1282,8 @@ pub unsafe fn generate_function(name: *const c_char, loc: Loc, params_count: usi
                     }
                 }
 
-                for i in (0..args.count).rev() {
-                    load_arg(*args.at(i), op.loc, out, asm);
+                for (i, arg) in args.iter().enumerate().rev() {
+                    load_arg(arg, op.loc, out, asm);
                     // first arg in Y:A to be compatible with wozmon routines
                     if i != 0 {
                         push16(out, asm);
@@ -1323,8 +1322,7 @@ pub unsafe fn generate_function(name: *const c_char, loc: Loc, params_count: usi
                 store_auto(out, result, asm);
             },
             Op::Asm {stmts} => {
-                for i in 0..stmts.count {
-                    let stmt = *stmts.at(i);
+                for stmt in stmts.iter() {
                     assemble_statement(out, stmt.line, stmt.loc, asm);
                 }
             },
@@ -1401,8 +1399,7 @@ pub unsafe fn generate_funcs(out: *mut String_Builder, funcs: *const [Func], asm
 }
 
 pub unsafe fn apply_relocations(out: *mut String_Builder, data_start: u16, asm: *mut Assembler) {
-    'reloc_loop: for i in 0..(*asm).relocs.count {
-        let reloc = *(*asm).relocs.at(i);
+    'reloc_loop: for reloc in (*asm).relocs.iter() {
         let caddr = reloc.addr;
         match reloc.kind {
             RelocationKind::DataOffset{off, byte} => {
@@ -1414,8 +1411,7 @@ pub unsafe fn apply_relocations(out: *mut String_Builder, data_start: u16, asm: 
                 }
             },
             RelocationKind::Label{func_name: name, label} => {
-                for i in 0..(*asm).op_labels.count {
-                    let op_label = *(*asm).op_labels.at(i);
+                for op_label in (*asm).op_labels.iter() {
                     if strcmp(op_label.func_name, name) == 0 && op_label.label == label {
                         write_word_at(out, (*asm).code_start + op_label.addr, caddr);
                         continue 'reloc_loop;
@@ -1425,8 +1421,7 @@ pub unsafe fn apply_relocations(out: *mut String_Builder, data_start: u16, asm: 
                 unreachable!();
             },
             RelocationKind::External{name, offset, byte, relative} => {
-                for i in 0..(*asm).externals.count {
-                    let label = *(*asm).externals.at(i);
+                for label in (*asm).externals.iter() {
                     if strcmp(label.name, name) == 0 {
                         let faddr = (*asm).code_start + label.addr + offset as u16;
                         if relative {
@@ -1499,8 +1494,8 @@ pub unsafe fn generate_globals(out: *mut String_Builder, globals: *mut [Global],
             add_reloc(out, RelocationKind::Address{idx: address, relative: false}, asm);
             link_address_label_here(address, out, asm);
         }
-        for j in 0..global.values.count {
-            match *global.values.at(j) {
+        for value in global.values.iter() {
+            match value {
                 ImmediateValue::Literal(lit) => write_word(out, lit as u16),
                 ImmediateValue::Name(name) =>
                     add_reloc(out, RelocationKind::External{name, byte: Byte::Both, offset: 0, relative: false}, asm),
@@ -1537,8 +1532,7 @@ pub unsafe fn generate_asm_funcs(out: *mut String_Builder, asm_funcs: *const [As
         let fun_addr = (*out).count as u16;
         add_external(asm_func.name, fun_addr, asm_func.name_loc, asm);
 
-        for j in 0..asm_func.body.count {
-            let stmt = *asm_func.body.at(j);
+        for stmt in asm_func.body.iter() {
             assemble_statement(out, stmt.line, stmt.loc, asm);
         }
     }

@@ -64,8 +64,7 @@ impl Target {
 pub unsafe fn register_apis(targets: *mut Array<Target>, apis: *const [TargetAPI], codegen_name: *const c_char) -> Option<()> {
     for i in 0..apis.len() {
         let api = (*apis)[i];
-        for j in 0..(*targets).count {
-            let target = *(*targets).at(j);
+        for target in (*targets).iter() {
             if strcmp(target.name(), api.name()) == 0 {
                 if strcmp(target.codegen_name, codegen_name) == 0 {
                     log(Log_Level::ERROR, c!("TARGET NAME CONFLICT: Codegen %s defines target %s more than once"), codegen_name, api.name());

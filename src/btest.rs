@@ -393,8 +393,7 @@ pub unsafe fn generate_report(reports: *const [Report], stats_by_target: *const 
     for i in 0..reports.len() {
         let report = (*reports)[i];
         printf(c!("%*s:"), row_width, report.name);
-        for j in 0..report.statuses.count {
-            let status = *report.statuses.at(j);
+        for status in report.statuses.iter() {
             printf(c!(" %s%s%s"), status.color(), status.letter(), RESET);
         }
         printf(c!("\n"));
@@ -422,8 +421,7 @@ type TestTable = Array<TestRow>;
 // maybe sort this array on loading it from the JSON file and do Binary Search. Sorting has additional benefit of keeping
 // the JSON file tidy.
 pub unsafe fn test_table_find_row(tt: *mut TestTable, case_name: *const c_char, target: Target) -> Option<*mut TestRow> {
-    for i in 0..(*tt).count {
-        let row = (*tt).at(i);
+    for row in (*tt).iter_mut() {
         if strcmp((*row).target.api.name(), target.api.name()) == 0 && strcmp((*row).case_name, case_name) == 0 {
             return Some(row)
         }
@@ -552,21 +550,19 @@ pub unsafe fn save_tt_to_json_file(
     log(Log_Level::INFO, c!("saving file %s..."), json_path);
     jim_begin(jim);
     jim_array_begin(jim);
-    for i in 0..tt.count {
-        let row = tt.at(i);
-
+    for row in tt.iter() {
         jim_object_begin(jim);
 
         jim_member_key(jim, c!("case"));
-        jim_string(jim, (*row).case_name);
+        jim_string(jim, row.case_name);
         jim_member_key(jim, c!("target"));
-        jim_string(jim, (*row).target.api.name());
+        jim_string(jim, row.target.api.name());
         jim_member_key(jim, c!("expected_stdout"));
-        jim_string(jim, (*row).expected_stdout);
+        jim_string(jim, row.expected_stdout);
         jim_member_key(jim, c!("state"));
-        jim_string(jim, (*row).state.name());
+        jim_string(jim, row.state.name());
         jim_member_key(jim, c!("comment"));
-        jim_string(jim, (*row).comment);
+        jim_string(jim, row.comment);
 
         jim_object_end(jim);
     }
@@ -772,11 +768,9 @@ pub unsafe fn main(argc: i32, argv: *mut*mut c_char) -> Option<()> {
     if (*target_flags).count == 0 {
         da_append_many(&mut selected_targets, da_slice(all_targets));
     } else {
-        for j in 0..(*target_flags).count {
+        for pattern in (*target_flags).iter() {
             let mut added_anything = false;
-            let pattern = *(*target_flags).at(j);
-            for j in 0..all_targets.count {
-                let target = *all_targets.at(j);
+            for target in all_targets.iter() {
                 let name = target.api.name();
                 if matches_glob(pattern, name)? {
                     da_append(&mut selected_targets, target);
@@ -790,11 +784,9 @@ pub unsafe fn main(argc: i32, argv: *mut*mut c_char) -> Option<()> {
         }
     }
     let mut targets: Array<Target> = zeroed();
-    for i in 0..selected_targets.count {
-        let target = *selected_targets.at(i);
+    for target in selected_targets.iter() {
         let mut matches_any = false;
-        'exclude: for j in 0..(*exclude_target_flags).count {
-            let pattern = *(*exclude_target_flags).at(j);
+        'exclude: for pattern in (*exclude_target_flags).iter() {
             if matches_glob(pattern, target.api.name())? {
                 matches_any = true;
                 break 'exclude;
@@ -811,8 +803,7 @@ pub unsafe fn main(argc: i32, argv: *mut*mut c_char) -> Option<()> {
     if !read_entire_dir(*test_folder, &mut test_files) { return None; }
     qsort(test_files.items as *mut c_void, test_files.count, size_of::<*const c_char>(), compar_cstr);
 
-    for i in 0..test_files.count {
-        let test_file = *test_files.at(i);
+    for test_file in test_files.iter() {
         if *test_file == '.' as c_char { continue; }
         let Some(case_name) = temp_strip_suffix(test_file, c!(".b")) else { continue; };
         da_append(&mut all_cases, case_name);
@@ -822,11 +813,9 @@ pub unsafe fn main(argc: i32, argv: *mut*mut c_char) -> Option<()> {
     if (*cases_flags).count == 0 {
         selected_cases = all_cases;
     } else {
-        for i in 0..(*cases_flags).count {
+        for pattern in (*cases_flags).iter() {
             let saved_count = selected_cases.count;
-            let pattern = *(*cases_flags).at(i);
-            for i in 0..all_cases.count {
-                let case_name = *all_cases.at(i);
+            for case_name in all_cases.iter() {
                 if matches_glob(pattern, case_name)? {
                     da_append(&mut selected_cases, case_name);
                 }
@@ -838,11 +827,9 @@ pub unsafe fn main(argc: i32, argv: *mut*mut c_char) -> Option<()> {
         }
     }
     let mut cases: Array<*const c_char> = zeroed();
-    for i in 0..selected_cases.count {
-        let case = *selected_cases.at(i);
+    for case in selected_cases.iter() {
         let mut matches_any = false;
-        'exclude: for j in 0..(*exclude_cases_flags).count {
-            let pattern = *(*exclude_cases_flags).at(j);
+        'exclude: for pattern in (*exclude_cases_flags).iter() {
             if matches_glob(pattern, case)? {
                 matches_any = true;
                 break 'exclude;
@@ -857,8 +844,7 @@ pub unsafe fn main(argc: i32, argv: *mut*mut c_char) -> Option<()> {
 
     if *list_targets {
         fprintf(stderr(), c!("Compilation targets:\n"));
-        for i in 0..targets.count {
-            let target = *targets.at(i);
+        for target in targets.iter() {
             fprintf(stderr(), c!("    %s\n"), target.api.name());
         }
         return Some(());
@@ -866,8 +852,7 @@ pub unsafe fn main(argc: i32, argv: *mut*mut c_char) -> Option<()> {
 
     if *list_cases {
         fprintf(stderr(), c!("Test cases:\n"));
-        for i in 0..cases.count {
-            let case = *cases.at(i);
+        for case in cases.iter() {
             fprintf(stderr(), c!("    %s\n"), case);
         }
         return Some(());
@@ -906,22 +891,18 @@ pub unsafe fn main(argc: i32, argv: *mut*mut c_char) -> Option<()> {
         }
         Action::Disable => {
             let mut case_width = 0;
-            for i in 0..cases.count {
-                let case_name = *cases.at(i);
+            for case_name in cases.iter() {
                 case_width = cmp::max(case_width, strlen(case_name));
             }
 
             let mut target_width = 0;
-            for j in 0..targets.count {
-                let target = *targets.at(j);
+            for target in targets.iter() {
                 target_width = cmp::max(target_width, strlen(target.api.name()));
             }
 
             let mut tt = load_tt_from_json_file_if_exists(da_slice(all_targets), json_path, *test_folder, &mut sb, &mut jimp)?;
-            for i in 0..cases.count {
-                let case_name = *cases.at(i);
-                for j in 0..targets.count {
-                    let target = *targets.at(j);
+            for case_name in cases.iter() {
+                for target in targets.iter() {
                     log(Log_Level::INFO, c!("disabling %-*s for %-*s"), case_width, case_name, target_width, target.api.name());
                     if let Some(row) = test_table_find_row(&mut tt, case_name, target) {
                         (*row).state = TestState::Disabled;

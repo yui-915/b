@@ -222,16 +222,15 @@ pub unsafe fn dump_op(op: OpWithLocation, output: *mut String_Builder) {
         Op::Funcall{result, fun, args} => {
             sb_appendf(output, c!("    auto[%zu] = "), result);
             dump_arg_call(fun, output);
-            for i in 0..args.count {
+            for arg in args.iter() {
                 sb_appendf(output, c!(", "));
-                dump_arg(output, *args.at(i));
+                dump_arg(output, arg);
             }
             sb_appendf(output, c!(")\n"));
         }
         Op::Asm {stmts} => {
             sb_appendf(output, c!("   __asm__(\n"));
-            for i in 0..stmts.count {
-                let stmt = *stmts.at(i);
+            for stmt in stmts.iter() {
                 sb_appendf(output, c!("    %s\n"), stmt.line);
             }
             sb_appendf(output, c!(")\n"));
@@ -291,11 +290,11 @@ pub unsafe fn dump_globals(output: *mut String_Builder, globals: *const [Global]
             sb_appendf(output, c!("[%zu]"), global.minimum_size);
         }
         sb_appendf(output, c!(": "));
-        for j in 0..global.values.count {
+        for (j, value) in global.values.iter().enumerate() {
             if j > 0 {
                 sb_appendf(output, c!(", "));
             }
-            match *global.values.at(j) {
+            match value {
                 ImmediateValue::Literal(lit) => sb_appendf(output, c!("%zu"), lit),
                 ImmediateValue::Name(name) => sb_appendf(output, c!("%s"), name),
                 ImmediateValue::DataOffset(offset) => sb_appendf(output, c!("data[%zu]"), offset),
@@ -348,8 +347,7 @@ pub unsafe fn dump_asm_funcs(output: *mut String_Builder, asm_funcs: *const [Asm
     for i in 0..asm_funcs.len() {
         let asm_func = (*asm_funcs)[i];
         sb_appendf(output, c!("%s(asm):\n"), asm_func.name);
-        for j in 0..asm_func.body.count {
-            let stmt = *asm_func.body.at(j);
+        for stmt in asm_func.body.iter() {
             sb_appendf(output, c!("    %s\n"), stmt.line);
         }
     }

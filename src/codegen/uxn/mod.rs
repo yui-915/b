@@ -56,10 +56,9 @@ pub enum PatchKind {
 }
 
 pub unsafe fn get_or_create_label_by_name(a: *mut Assembler, name: *const c_char) -> usize {
-    for i in 0..(*a).named_labels.count {
-        let named_label = (*a).named_labels.at(i);
-        if strcmp((*named_label).name, name) == 0 {
-            return (*named_label).label;
+    for named_label in (*a).named_labels.iter() {
+        if strcmp(named_label.name, name) == 0 {
+            return named_label.label;
         }
     }
     let new_label = create_label(a);
@@ -79,12 +78,10 @@ pub unsafe fn link_label(a: *mut Assembler, label: usize, addr: usize) {
 }
 
 pub unsafe fn apply_patches(output: *mut String_Builder, a: *mut Assembler) -> Option<()> {
-    for i in 0..(*a).patches.count {
-        let patch = *(*a).patches.at(i);
+    for patch in (*a).patches.iter() {
         let addr = *(*a).resolved_addresses.at(patch.label);
         if addr == 0 {
-            for j in 0..(*a).named_labels.count {
-                let named_label = *(*a).named_labels.at(j);
+            for named_label in (*a).named_labels.iter() {
                 if named_label.label == patch.label {
                     log(Log_Level::ERROR, c!("uxn: Label '%s' was never linked"), named_label.name);
                     return None;
@@ -236,9 +233,8 @@ pub unsafe fn generate_program(
     write_lit_stz2(output, SP);
     // call main or _start, _start having a priority
     let mut main_proc = c!("main");
-    for i in 0..(*program).funcs.count {
-        let name = (*(*program).funcs.at(i)).name;
-        if strcmp(name, c!("_start")) == 0 {
+    for func in (*program).funcs.iter() {
+        if strcmp(func.name, c!("_start")) == 0 {
             main_proc = c!("_start");
             break;
         }
@@ -594,8 +590,8 @@ pub unsafe fn generate_function(name: *const c_char, name_loc: Loc, params_count
                 if args.count > MAX_ARGS.into() {
                     missingf!(op.loc, c!("Too many function call arguments. We support only %d but %zu were provided\n"), MAX_ARGS, args.count);
                 }
-                for i in 0..args.count {
-                    load_arg(*args.at(i), op.loc, output, assembler);
+                for (i, arg) in args.iter().enumerate() {
+                    load_arg(arg, op.loc, output, assembler);
                     write_lit_stz2(output, FIRST_ARG + (i as u8) * 2)
                 }
 
@@ -857,8 +853,8 @@ pub unsafe fn generate_globals(output: *mut String_Builder, globals: *const [Glo
             write_label_abs(output, label, assembler, 0);
             link_label(assembler, label, (*output).count);
         }
-        for j in 0..global.values.count {
-            match *global.values.at(j) {
+        for value in global.values.iter() {
+            match value {
                 ImmediateValue::Literal(lit) => {
                     write_short(output, lit as u16);
                 }

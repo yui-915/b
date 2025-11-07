@@ -161,8 +161,7 @@ pub unsafe fn scope_pop(vars: *mut Array<Array<Var>>) {
 }
 
 pub unsafe fn find_var_near(vars: *const Array<Var>, name: *const c_char) -> *const Var {
-    for i in 0..(*vars).count {
-        let var = (*vars).at(i);
+    for var in (*vars).iter_mut() {
         if strcmp((*var).name, name) == 0 {
             return var
         }
@@ -214,8 +213,7 @@ pub struct Goto {
 }
 
 pub unsafe fn find_goto_label(labels: *const Array<GotoLabel>, name: *const c_char) -> *const GotoLabel {
-    for i in 0..(*labels).count {
-        let label = (*labels).at(i);
+    for label in (*labels).iter_mut() {
         if strcmp((*label).name, name) == 0 {
             return label
         }
@@ -656,8 +654,8 @@ pub unsafe fn compile_block(l: *mut Lexer, c: *mut Compiler) -> Option<()> {
 }
 
 pub unsafe fn name_declare_if_not_exists(names: *mut Array<*const c_char>, name: *const c_char) {
-    for i in 0..(*names).count {
-        if strcmp(*(*names).at(i), name) == 0 {
+    for existing_name in (*names).iter() {
+        if strcmp(existing_name, name) == 0 {
             return;
         }
     }
@@ -1033,8 +1031,7 @@ pub unsafe fn compile_program(l: *mut Lexer, c: *mut Compiler) -> Option<()> {
                         compile_statement(l, c)?;
                         scope_pop(&mut (*c).vars); // end function scope
 
-                        for i in 0..(*c).func_gotos.count {
-                            let used_label = *(*c).func_gotos.at(i);
+                        for used_label in (*c).func_gotos.iter() {
                             let existing_label = find_goto_label(&(*c).func_goto_labels, used_label.name);
                             if existing_label.is_null() {
                                 diagf!(used_label.loc, c!("ERROR: label `%s` used but not defined\n"), used_label.name);
@@ -1293,8 +1290,8 @@ pub unsafe fn main(mut argc: i32, mut argv: *mut*mut c_char) -> Option<()> {
 
     if (*linker).count > 0 {
         let mut s: Shlex = zeroed();
-        for i in 0..(*linker).count {
-            shlex_append_quoted(&mut s, *(*linker).at(i));
+        for arg in (*linker).iter() {
+            shlex_append_quoted(&mut s, arg);
         }
         let codegen_arg = temp_sprintf(c!("link-args=%s"), shlex_join(&mut s));
         da_append(codegen_args, codegen_arg);
@@ -1324,8 +1321,7 @@ pub unsafe fn main(mut argc: i32, mut argv: *mut*mut c_char) -> Option<()> {
         }
 
         let mut sb: String_Builder = zeroed();
-        for i in 0..input_paths.count {
-            let input_path = *input_paths.at(i);
+        for (i, input_path) in input_paths.iter().enumerate() {
             if i > 0 { sb_appendf(&mut sb, c!(", ")); }
             sb_appendf(&mut sb, c!("%s"), input_path);
         }
@@ -1338,9 +1334,7 @@ pub unsafe fn main(mut argc: i32, mut argv: *mut*mut c_char) -> Option<()> {
 
         scope_push(&mut c.vars);          // begin global scope
 
-        for i in 0..input_paths.count {
-            let input_path = *input_paths.at(i);
-
+        for input_path in input_paths.iter() {
             input.count = 0;
             read_entire_file(input_path, &mut input)?;
 
@@ -1349,9 +1343,7 @@ pub unsafe fn main(mut argc: i32, mut argv: *mut*mut c_char) -> Option<()> {
             compile_program(&mut l, &mut c)?;
         }
 
-        for i in 0..c.used_funcs.count {
-            let used_global = *c.used_funcs.at(i);
-
+        for used_global in c.used_funcs.iter() {
             if find_var_deep(&mut c.vars, used_global.name).is_null() {
                 diagf!(used_global.loc, c!("ERROR: could not find name `%s`\n"), used_global.name);
                 bump_error_count(&mut c)?;

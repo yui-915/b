@@ -20,6 +20,19 @@ impl<T> Array<T> {
     }
 }
 
+impl<T: Copy + 'static> Array<T> {
+    // We use `&mut [T]` implmentation of `IntoIterator` then cast back to the appropriate type.
+    // since the `Iterator` trait uses refrences in it's signature `fn next(&self) -> ...`
+    // it can't be implemented directly because that's against the rules of Crust™.
+
+    pub unsafe fn iter(self) -> impl Iterator<Item = T> + ExactSizeIterator + DoubleEndedIterator {
+        (&mut *da_slice(self)).into_iter().map(|e| *e)
+    }
+    pub unsafe fn iter_mut(self) -> impl Iterator<Item = *mut T> + ExactSizeIterator + DoubleEndedIterator {
+        (&mut *da_slice(self)).into_iter().map(|e| e as _)
+    }
+}
+
 pub unsafe fn da_last<T: Copy>(xs: *const Array<T>) -> Option<*const T> {
     if (*xs).count > 0 {
         Some((*xs).at((*xs).count-1))
