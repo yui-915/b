@@ -1,5 +1,6 @@
 // This is a module that facilitates Crust-style programming - https://github.com/tsoding/crust
 use crate::crust::libc::*;
+use crate::nob::Array;
 use core::panic::PanicInfo;
 use core::ffi::*;
 
@@ -47,10 +48,10 @@ pub unsafe fn assoc_lookup_cstr_mut<Value>(assoc: *mut [(*const c_char, Value)],
     None
 }
 
-pub unsafe fn assoc_lookup_cstr<Value>(assoc: *const [(*const c_char, Value)], needle: *const c_char) -> Option<*const Value> {
-    for i in 0..assoc.len() {
-        if strcmp((*assoc)[i].0, needle) == 0 {
-            return Some(&(*assoc)[i].1);
+pub unsafe fn assoc_lookup_cstr<Value: Copy + 'static>(assoc: Array<(*const c_char, Value)>, needle: *const c_char) -> Option<*const Value> {
+    for entry in assoc.iter() {
+        if strcmp(entry.0, needle) == 0 {
+            return Some(&entry.1);
         }
     }
     None

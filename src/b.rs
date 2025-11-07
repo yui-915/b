@@ -968,7 +968,7 @@ pub unsafe fn compile_program(l: *mut Lexer, c: *mut Compiler) -> Option<()> {
                 get_and_expect_token_but_continue(l, c, Token::ID)?;
                 let func = arena::strdup(&mut (*c).arena, (*l).string);
                 let func_loc = (*l).loc;
-                if let Some(existing_variadic) = assoc_lookup_cstr(da_slice((*c).program.variadics), func) {
+                if let Some(existing_variadic) = assoc_lookup_cstr((*c).program.variadics, func) {
                     // TODO: report all the duplicate variadics maybe?
                     diagf!(func_loc, c!("ERROR: duplicate variadic declaration `%s`\n"), func);
                     diagf!((*existing_variadic).loc, c!("NOTE: the first declaration is located here\n"));
@@ -1190,10 +1190,10 @@ pub unsafe fn get_garbage_base(path: *const c_char, target: Target) -> Option<*m
     Some(temp_sprintf(c!("%s/%s.%s"), garbage_dir, filename, target.api.name()))
 }
 
-pub unsafe fn print_available_targets(targets: *const [Target]) {
+pub unsafe fn print_available_targets(targets: Array<Target>) {
     fprintf(stderr(), c!("Compilation targets:\n"));
-    for i in 0..targets.len() {
-        fprintf(stderr(), c!("    %s\n"), (*targets)[i].api.name());
+    for target in targets.iter() {
+        fprintf(stderr(), c!("    %s\n"), target.api.name());
     }
 }
 
@@ -1203,13 +1203,13 @@ pub unsafe fn main(mut argc: i32, mut argv: *mut*mut c_char) -> Option<()> {
     let default_target;
     // TODO: maybe instead of gas_ the prefix should be gnu_, 'cause that makes more sense.
     if cfg!(target_arch = "aarch64") && (cfg!(target_os = "linux") || cfg!(target_os = "android")) {
-        default_target = Some(Target::by_name(da_slice(targets), c!("gas-aarch64-linux")).expect("Default target for Linux on AArch64"));
+        default_target = Some(Target::by_name(targets, c!("gas-aarch64-linux")).expect("Default target for Linux on AArch64"));
     } else if cfg!(target_arch = "aarch64") && cfg!(target_os = "macos") {
-        default_target = Some(Target::by_name(da_slice(targets), c!("gas-aarch64-darwin")).expect("Default target for Darwin on AArch64"));
+        default_target = Some(Target::by_name(targets, c!("gas-aarch64-darwin")).expect("Default target for Darwin on AArch64"));
     } else if cfg!(target_arch = "x86_64") && cfg!(target_os = "linux") {
-        default_target = Some(Target::by_name(da_slice(targets), c!("gas-x86_64-linux")).expect("Default target for Linux on x86_64"));
+        default_target = Some(Target::by_name(targets, c!("gas-x86_64-linux")).expect("Default target for Linux on x86_64"));
     } else if cfg!(target_arch = "x86_64") && cfg!(target_os = "windows") {
-        default_target = Some(Target::by_name(da_slice(targets), c!("gas-x86_64-windows")).expect("Default target for Windows on x86_64"));
+        default_target = Some(Target::by_name(targets, c!("gas-x86_64-windows")).expect("Default target for Windows on x86_64"));
     } else {
         default_target = None;
     }
@@ -1273,13 +1273,13 @@ pub unsafe fn main(mut argc: i32, mut argv: *mut*mut c_char) -> Option<()> {
     }
 
     if strcmp(*target_name, c!("list")) == 0 || *tlist {
-        print_available_targets(da_slice(targets));
+        print_available_targets(targets);
         return Some(());
     }
 
-    let Some(target) = Target::by_name(da_slice(targets), *target_name) else {
+    let Some(target) = Target::by_name(targets, *target_name) else {
         usage();
-        print_available_targets(da_slice(targets));
+        print_available_targets(targets);
         log(Log_Level::ERROR, c!("Unknown target `%s`"), *target_name);
         return None;
     };

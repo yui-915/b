@@ -106,11 +106,10 @@ const SP: u8 = 0;
 const BP: u8 = 2;
 const FIRST_ARG: u8 = 4;
 
-pub unsafe fn generate_asm_funcs(output: *mut String_Builder, asm_funcs: *const [AsmFunc], assembler: *mut Assembler) -> Option<()> {
-    for i in 0..asm_funcs.len() {
-        let asm_func = (*asm_funcs)[i];
+pub unsafe fn generate_asm_funcs(output: *mut String_Builder, asm_funcs: Array<AsmFunc>, assembler: *mut Assembler) -> Option<()> {
+    for asm_func in asm_funcs.iter() {
         link_label(assembler, get_or_create_label_by_name(assembler, asm_func.name), (*output).count);
-        process_asm_statements(output, da_slice(asm_func.body), assembler)?;
+        process_asm_statements(output, asm_func.body, assembler)?;
     }
     Some(())
 }
@@ -249,11 +248,11 @@ pub unsafe fn generate_program(
     write_label_abs(output, vector_return_label, &mut assembler, 0);
     write_op(output, UxnOp::BRK);
 
-    generate_funcs(output, da_slice((*program).funcs), &mut assembler)?;
-    generate_asm_funcs(output, da_slice((*program).asm_funcs), &mut assembler)?;
-    generate_extrns(da_slice((*program).extrns), da_slice((*program).funcs), da_slice((*program).asm_funcs), da_slice((*program).globals))?;
-    generate_data_section(output, da_slice((*program).data), &mut assembler);
-    generate_globals(output, da_slice((*program).globals), &mut assembler);
+    generate_funcs(output, (*program).funcs, &mut assembler)?;
+    generate_asm_funcs(output, (*program).asm_funcs, &mut assembler)?;
+    generate_extrns((*program).extrns, (*program).funcs, (*program).asm_funcs, (*program).globals)?;
+    generate_data_section(output, (*program).data, &mut assembler);
+    generate_globals(output, (*program).globals, &mut assembler);
 
     apply_patches(output, &mut assembler)?;
 
@@ -274,14 +273,14 @@ pub unsafe fn run_program(
     Some(())
 }
 
-pub unsafe fn generate_funcs(output: *mut String_Builder, funcs: *const [Func], assembler: &mut Assembler) -> Option<()> {
-    for i in 0..funcs.len() {
-        generate_function((*funcs)[i].name, (*funcs)[i].name_loc, (*funcs)[i].params_count, (*funcs)[i].auto_vars_count, da_slice((*funcs)[i].body), output, assembler)?;
+pub unsafe fn generate_funcs(output: *mut String_Builder, funcs: Array<Func>, assembler: &mut Assembler) -> Option<()> {
+    for func in funcs.iter() {
+        generate_function(func.name, func.name_loc, func.params_count, func.auto_vars_count, func.body, output, assembler)?;
     }
     Some(())
 }
 
-pub unsafe fn generate_function(name: *const c_char, name_loc: Loc, params_count: usize, auto_vars_count: usize, body: *const [OpWithLocation], output: *mut String_Builder, assembler: *mut Assembler) -> Option<()> {
+pub unsafe fn generate_function(name: *const c_char, name_loc: Loc, params_count: usize, auto_vars_count: usize, body: Array<OpWithLocation>, output: *mut String_Builder, assembler: *mut Assembler) -> Option<()> {
     link_label(assembler, get_or_create_label_by_name(assembler, name), (*output).count);
 
     const MAX_ARGS: usize = (256 - FIRST_ARG as usize) / 2;
@@ -317,8 +316,7 @@ pub unsafe fn generate_function(name: *const c_char, name_loc: Loc, params_count
 
     // prepare our labels for each IR label
     let mut labels: Array<usize> = zeroed();
-    for i in 0..body.len() {
-        let op = (*body)[i];
+    for op in body.iter() {
         match op.opcode {
             Op::Label {..} => {
                 da_append(&mut labels, create_label(assembler));
@@ -328,8 +326,7 @@ pub unsafe fn generate_function(name: *const c_char, name_loc: Loc, params_count
     }
 
     // emit code
-    for i in 0..body.len() {
-        let op = (*body)[i];
+    for op in body.iter() {
         match op.opcode {
             Op::Bogus => unreachable!("bogus-amogus"),
             Op::UnaryNot {result, arg} => {
@@ -600,7 +597,7 @@ pub unsafe fn generate_function(name: *const c_char, name_loc: Loc, params_count
                 store_auto(output, result);
             }
             Op::Asm {stmts} => {
-                process_asm_statements(output, da_slice(stmts), assembler)?;
+                process_asm_statements(output, stmts, assembler)?;
             }
             Op::Label {label} => {
                 link_label(assembler, *labels.at(label), (*output).count);
@@ -816,25 +813,21 @@ pub unsafe fn store_auto(output: *mut String_Builder, index: usize) {
     write_op(output, UxnOp::STA2);
 }
 
-pub unsafe fn generate_extrns(extrns: *const [*const c_char], funcs: *const [Func], asm_funcs: *const[AsmFunc], globals: *const [Global]) -> Option<()> {
-    'skip_function_or_global: for i in 0..extrns.len() {
+pub unsafe fn generate_extrns(extrns: Array<*const c_char>, funcs: Array<Func>, asm_funcs: Array<AsmFunc>, globals: Array<Global>) -> Option<()> {
+    'skip_function_or_global: for name in extrns.iter() {
         // assemble a few "stdlib" functions which can't be programmed in B
-        let name = (*extrns)[i];
-        for j in 0..funcs.len() {
-            let func = (*funcs)[j];
+        for func in funcs.iter() {
             if strcmp(func.name, name) == 0 {
                 continue 'skip_function_or_global
             }
         }
-        for j in 0..asm_funcs.len() {
-            let func = (*asm_funcs)[j];
+        for func in asm_funcs.iter() {
             if strcmp(func.name, name) == 0 {
                 continue 'skip_function_or_global
             }
         }
-        for j in 0..globals.len() {
-            let global = (*globals)[j].name;
-            if strcmp(global, name) == 0 {
+        for global in globals.iter() {
+            if strcmp(global.name, name) == 0 {
                 continue 'skip_function_or_global
             }
         }
@@ -844,9 +837,8 @@ pub unsafe fn generate_extrns(extrns: *const [*const c_char], funcs: *const [Fun
     Some(())
 }
 
-pub unsafe fn generate_globals(output: *mut String_Builder, globals: *const [Global], assembler: *mut Assembler) {
-    for i in 0..globals.len() {
-        let global = (*globals)[i];
+pub unsafe fn generate_globals(output: *mut String_Builder, globals: Array<Global>, assembler: *mut Assembler) {
+    for global in globals.iter() {
         link_label(assembler, get_or_create_label_by_name(assembler, global.name), (*output).count);
         if global.is_vec {
             let label = create_label(assembler);
@@ -872,10 +864,10 @@ pub unsafe fn generate_globals(output: *mut String_Builder, globals: *const [Glo
     }
 }
 
-pub unsafe fn generate_data_section(output: *mut String_Builder, data: *const [u8], assembler: *mut Assembler) {
+pub unsafe fn generate_data_section(output: *mut String_Builder, data: Array<u8>, assembler: *mut Assembler) {
     link_label(assembler, (*assembler).data_section_label, (*output).count);
-    for i in 0..data.len() {
-        write_byte(output, (*data)[i]);
+    for byte in data.iter() {
+        write_byte(output, byte);
     }
 }
 
@@ -1214,9 +1206,8 @@ pub unsafe fn has_immediate(op: UxnOp) -> bool {
     has_byte_immediate(op) || has_short_immediate(op)
 }
 
-pub unsafe fn process_asm_statements(output: *mut String_Builder, asm_stmts: *const [AsmStmt], assembler: *mut Assembler) -> Option<()> {
-    for i in 0..asm_stmts.len() {
-        let asm_stmt = (*asm_stmts)[i];
+pub unsafe fn process_asm_statements(output: *mut String_Builder, asm_stmts: Array<AsmStmt>, assembler: *mut Assembler) -> Option<()> {
+    for asm_stmt in asm_stmts.iter() {
         process_asm_statement(output, asm_stmt, assembler)?;
     }
     Some(())

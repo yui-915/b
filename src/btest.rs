@@ -225,11 +225,9 @@ pub unsafe fn print_report_stats(stats: ReportStats) {
     printf(c!("\n"));
 }
 
-pub unsafe fn print_top_labels(targets: *const [Target], stats_by_target: *const [ReportStats], row_width: usize, col_width: usize) {
-    assert!(targets.len() == stats_by_target.len());
-    for j in 0..targets.len() {
-        let target = (*targets)[j];
-        let stats = (*stats_by_target)[j];
+pub unsafe fn print_top_labels(targets: Array<Target>, stats_by_target: Array<ReportStats>, row_width: usize, col_width: usize) {
+    assert!(targets.count == stats_by_target.count);
+    for (j, (target, stats)) in targets.iter().zip(stats_by_target.iter()).enumerate() {
         printf(c!("%*s"), row_width + 2, c!(""));
         for _ in 0..j {
             printf(c!("│ "));
@@ -240,11 +238,9 @@ pub unsafe fn print_top_labels(targets: *const [Target], stats_by_target: *const
     }
 }
 
-pub unsafe fn print_bottom_labels(targets: *const [Target], stats_by_target: *const [ReportStats], row_width: usize, col_width: usize) {
-    assert!(targets.len() == stats_by_target.len());
-    for j in (0..targets.len()).rev() {
-        let target = (*targets)[j];
-        let stats = (*stats_by_target)[j];
+pub unsafe fn print_bottom_labels(targets: Array<Target>, stats_by_target: Array<ReportStats>, row_width: usize, col_width: usize) {
+    assert!(targets.count == stats_by_target.count);
+    for (j, (target, stats)) in targets.iter().zip(stats_by_target.iter()).enumerate().rev() {
         printf(c!("%*s"), row_width + 2, c!(""));
         for _ in 0..j {
             printf(c!("│ "));
@@ -275,7 +271,7 @@ pub unsafe fn matches_glob(pattern: *const c_char, text: *const c_char) -> Optio
 
 pub unsafe fn record_tests(
     // Inputs
-    test_folder: *const c_char, cases: *const [*const c_char], targets: *const [Target], tt: *mut TestTable, quiet: bool,
+    test_folder: *const c_char, cases: Array<*const c_char>, targets: Array<Target>, tt: *mut TestTable, quiet: bool,
     // Outputs
     cmd: *mut Cmd, sb: *mut String_Builder,
     reports: *mut Array<Report>, stats_by_target: *mut Array<ReportStats>,
@@ -283,15 +279,13 @@ pub unsafe fn record_tests(
     // TODO: Parallelize the test runner.
     // Probably using `cmd_run_async_and_reset`.
     // Also don't forget to add the `-j` flag.
-    for i in 0..cases.len() {
-        let case_name = (*cases)[i];
+    for case_name in cases.iter() {
         let mut report = Report {
             name: case_name,
             statuses: zeroed(),
         };
 
-        for j in 0..targets.len() {
-            let target = (*targets)[j];
+        for target in targets.iter() {
             if let Some(test_row) = test_table_find_row(tt, case_name, target) {
                 match (*test_row).state {
                     TestState::Enabled => {
@@ -356,33 +350,30 @@ pub unsafe fn record_tests(
         da_append(reports, report);
     }
 
-    collect_stats_by_target(targets, da_slice(*reports), stats_by_target);
-    generate_report(da_slice(*reports), da_slice(*stats_by_target), targets);
+    collect_stats_by_target(targets, *reports, stats_by_target);
+    generate_report(*reports, *stats_by_target, targets);
 
     Some(())
 }
 
-pub unsafe fn collect_stats_by_target(targets: *const [Target], reports: *const [Report], stats_by_target: *mut Array<ReportStats>) {
-    for j in 0..targets.len() {
+pub unsafe fn collect_stats_by_target(targets: Array<Target>, reports: Array<Report>, stats_by_target: *mut Array<ReportStats>) {
+    for j in 0..targets.count {
         let mut stats: ReportStats = zeroed();
-        for i in 0..reports.len() {
-            let report = (*reports)[i];
+        for report in reports.iter() {
             stats.entries[*report.statuses.at(j) as usize] += 1;
         }
         da_append(stats_by_target, stats);
     }
 }
 
-pub unsafe fn generate_report(reports: *const [Report], stats_by_target: *const [ReportStats], targets: *const [Target]) {
+pub unsafe fn generate_report(reports: Array<Report>, stats_by_target: Array<ReportStats>, targets: Array<Target>) {
     let mut row_width = 0;
-    for i in 0..reports.len() {
-        let report = (*reports)[i];
+    for report in reports.iter() {
         row_width = cmp::max(row_width, strlen(report.name));
     }
 
     let mut col_width = 0;
-    for j in 0..targets.len() {
-        let target = (*targets)[j];
+    for (j, target) in targets.iter().enumerate() {
         let width = 2*(j + 1) + strlen(target.api.name());
         col_width = cmp::max(col_width, width);
     }
@@ -390,8 +381,7 @@ pub unsafe fn generate_report(reports: *const [Report], stats_by_target: *const 
     print_legend(row_width);
     printf(c!("\n"));
     print_top_labels(targets, stats_by_target, row_width, col_width);
-    for i in 0..reports.len() {
-        let report = (*reports)[i];
+    for report in reports.iter() {
         printf(c!("%*s:"), row_width, report.name);
         for status in report.statuses.iter() {
             printf(c!(" %s%s%s"), status.color(), status.letter(), RESET);
@@ -430,7 +420,7 @@ pub unsafe fn test_table_find_row(tt: *mut TestTable, case_name: *const c_char, 
 }
 
 pub unsafe fn load_tt_from_json_file_if_exists(
-    all_targets: *const [Target], json_path: *const c_char, test_folder: *const c_char,
+    all_targets: Array<Target>, json_path: *const c_char, test_folder: *const c_char,
     sb: *mut String_Builder, jimp: *mut Jimp
 ) -> Option<TestTable> {
     let mut tt: TestTable = zeroed();
@@ -574,7 +564,7 @@ pub unsafe fn save_tt_to_json_file(
 pub unsafe fn replay_tests(
     // TODO: The Inputs and the Outputs want to be their own entity. But what should they be called?
     // Inputs
-    test_folder: *const c_char, cases: *const [*const c_char], targets: *const [Target], mut tt: TestTable, quiet: bool,
+    test_folder: *const c_char, cases: Array<*const c_char>, targets: Array<Target>, mut tt: TestTable, quiet: bool,
     // Outputs
     cmd: *mut Cmd, sb: *mut String_Builder, reports: *mut Array<Report>, stats_by_target: *mut Array<ReportStats>, jim: *mut Jim,
 ) -> Option<()> {
@@ -582,15 +572,13 @@ pub unsafe fn replay_tests(
     // TODO: Parallelize the test runner.
     // Probably using `cmd_run_async_and_reset`.
     // Also don't forget to add the `-j` flag.
-    for i in 0..cases.len() {
-        let case_name = (*cases)[i];
+    for case_name in cases.iter() {
         let mut report = Report {
             name: case_name,
             statuses: zeroed(),
         };
 
-        for j in 0..targets.len() {
-            let target = (*targets)[j];
+        for target in targets.iter() {
             if let Some(row) = test_table_find_row(&mut tt, case_name, target) {
                 match (*row).state {
                     TestState::Enabled => {
@@ -641,8 +629,8 @@ pub unsafe fn replay_tests(
         da_append(reports, report);
     }
 
-    collect_stats_by_target(targets, da_slice(*reports), stats_by_target);
-    generate_report(da_slice(*reports), da_slice(*stats_by_target), targets);
+    collect_stats_by_target(targets, *reports, stats_by_target);
+    generate_report(*reports, *stats_by_target, targets);
 
     Some(())
 }
@@ -867,26 +855,26 @@ pub unsafe fn main(argc: i32, argv: *mut*mut c_char) -> Option<()> {
 
     match action {
         Action::Record => {
-            let mut tt = load_tt_from_json_file_if_exists(da_slice(all_targets), json_path, *test_folder, &mut sb, &mut jimp)?;
+            let mut tt = load_tt_from_json_file_if_exists(all_targets, json_path, *test_folder, &mut sb, &mut jimp)?;
             record_tests(
                 // Inputs
-                *test_folder, da_slice(cases), da_slice(targets), &mut tt, *quiet,
+                *test_folder, cases, targets, &mut tt, *quiet,
                 // Outputs
                 &mut cmd, &mut sb, &mut reports, &mut stats_by_target,
             )?;
             save_tt_to_json_file(json_path, tt, &mut jim)?;
         }
         Action::Replay => {
-            let tt = load_tt_from_json_file_if_exists(da_slice(all_targets), json_path, *test_folder, &mut sb, &mut jimp)?;
+            let tt = load_tt_from_json_file_if_exists(all_targets, json_path, *test_folder, &mut sb, &mut jimp)?;
             replay_tests(
                 // Inputs
-                *test_folder, da_slice(cases), da_slice(targets), tt, *quiet,
+                *test_folder, cases, targets, tt, *quiet,
                 // Outputs
                 &mut cmd, &mut sb, &mut reports, &mut stats_by_target, &mut jim,
             );
         }
         Action::Prune => {
-            let tt = load_tt_from_json_file_if_exists(da_slice(all_targets), json_path, *test_folder, &mut sb, &mut jimp)?;
+            let tt = load_tt_from_json_file_if_exists(all_targets, json_path, *test_folder, &mut sb, &mut jimp)?;
             save_tt_to_json_file(json_path, tt, &mut jim)?;
         }
         Action::Disable => {
@@ -900,7 +888,7 @@ pub unsafe fn main(argc: i32, argv: *mut*mut c_char) -> Option<()> {
                 target_width = cmp::max(target_width, strlen(target.api.name()));
             }
 
-            let mut tt = load_tt_from_json_file_if_exists(da_slice(all_targets), json_path, *test_folder, &mut sb, &mut jimp)?;
+            let mut tt = load_tt_from_json_file_if_exists(all_targets, json_path, *test_folder, &mut sb, &mut jimp)?;
             for case_name in cases.iter() {
                 for target in targets.iter() {
                     log(Log_Level::INFO, c!("disabling %-*s for %-*s"), case_width, case_name, target_width, target.api.name());
@@ -927,7 +915,7 @@ pub unsafe fn main(argc: i32, argv: *mut*mut c_char) -> Option<()> {
             save_tt_to_json_file(json_path, tt, &mut jim)?;
         }
         Action::Count => {
-            let tt = load_tt_from_json_file_if_exists(da_slice(all_targets), json_path, *test_folder, &mut sb, &mut jimp)?;
+            let tt = load_tt_from_json_file_if_exists(all_targets, json_path, *test_folder, &mut sb, &mut jimp)?;
             printf(c!("%zu\n"), tt.count);
         }
     }

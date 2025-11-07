@@ -257,34 +257,33 @@ pub unsafe fn dump_op(op: OpWithLocation, output: *mut String_Builder) {
     }
 }
 
-pub unsafe fn dump_function(name: *const c_char, params_count: usize, auto_vars_count: usize, body: *const [OpWithLocation], output: *mut String_Builder) {
+pub unsafe fn dump_function(name: *const c_char, params_count: usize, auto_vars_count: usize, body: Array<OpWithLocation>, output: *mut String_Builder) {
     sb_appendf(output, c!("%s(%zu, %zu):\n"), name, params_count, auto_vars_count);
-    for i in 0..body.len() {
-        dump_op((*body)[i], output)
+    for op in body.iter() {
+        dump_op(op, output)
     }
 }
 
-pub unsafe fn dump_funcs(output: *mut String_Builder, funcs: *const [Func]) {
+pub unsafe fn dump_funcs(output: *mut String_Builder, funcs: Array<Func>) {
     sb_appendf(output, c!("-- Functions --\n"));
     sb_appendf(output, c!("\n"));
-    for i in 0..funcs.len() {
-        dump_function((*funcs)[i].name, (*funcs)[i].params_count, (*funcs)[i].auto_vars_count, da_slice((*funcs)[i].body), output);
+    for func in funcs.iter() {
+        dump_function(func.name, func.params_count, func.auto_vars_count, func.body, output);
     }
 }
 
-pub unsafe fn dump_extrns(output: *mut String_Builder, extrns: *const [*const c_char]) {
+pub unsafe fn dump_extrns(output: *mut String_Builder, extrns: Array<*const c_char>) {
     sb_appendf(output, c!("\n"));
     sb_appendf(output, c!("-- External Symbols --\n\n"));
-    for i in 0..extrns.len() {
-        sb_appendf(output, c!("    %s\n"), (*extrns)[i]);
+    for extrn in extrns.iter() {
+        sb_appendf(output, c!("    %s\n"), extrn);
     }
 }
 
-pub unsafe fn dump_globals(output: *mut String_Builder, globals: *const [Global]) {
+pub unsafe fn dump_globals(output: *mut String_Builder, globals: Array<Global>) {
     sb_appendf(output, c!("\n"));
     sb_appendf(output, c!("-- Global Variables --\n\n"));
-    for i in 0..globals.len() {
-        let global = (*globals)[i];
+    for global in globals.iter() {
         sb_appendf(output, c!("%s"), global.name);
         if global.is_vec {
             sb_appendf(output, c!("[%zu]"), global.minimum_size);
@@ -304,27 +303,27 @@ pub unsafe fn dump_globals(output: *mut String_Builder, globals: *const [Global]
     }
 }
 
-pub unsafe fn dump_data_section(output: *mut String_Builder, data: *const [u8]) {
-    if data.len() > 0 {
+pub unsafe fn dump_data_section(output: *mut String_Builder, data: Array<u8>) {
+    if data.count > 0 {
         sb_appendf(output, c!("\n"));
         sb_appendf(output, c!("-- Data Section --\n"));
         sb_appendf(output, c!("\n"));
 
         const ROW_SIZE: usize = 12;
-        for i in (0..data.len()).step_by(ROW_SIZE) {
+        for i in (0..data.count).step_by(ROW_SIZE) {
             sb_appendf(output, c!("%04X:"), i as c_uint);
             for j in i..(i+ROW_SIZE) {
-                if j < data.len() {
+                if j < data.count {
                     sb_appendf(output, c!(" "));
-                    sb_appendf(output, c!("%02X"), (*data)[j] as c_uint);
+                    sb_appendf(output, c!("%02X"), data.at(j) as c_uint);
                 } else {
                     sb_appendf(output, c!("   "));
                 }
             }
 
             sb_appendf(output, c!(" | "));
-            for j in i..(i+ROW_SIZE).min(data.len()) {
-                let ch = (*data)[j] as char;
+            for j in i..(i+ROW_SIZE).min(data.count) {
+                let ch = *data.at(j) as char;
                 let c = if ch.is_ascii_whitespace() {
                     // display all whitespace as a regular space
                     // stops '\t', '\n', '\b' from messing up the formatting
@@ -343,9 +342,8 @@ pub unsafe fn dump_data_section(output: *mut String_Builder, data: *const [u8]) 
     }
 }
 
-pub unsafe fn dump_asm_funcs(output: *mut String_Builder, asm_funcs: *const [AsmFunc]) {
-    for i in 0..asm_funcs.len() {
-        let asm_func = (*asm_funcs)[i];
+pub unsafe fn dump_asm_funcs(output: *mut String_Builder, asm_funcs: Array<AsmFunc>) {
+    for asm_func in asm_funcs.iter() {
         sb_appendf(output, c!("%s(asm):\n"), asm_func.name);
         for stmt in asm_func.body.iter() {
             sb_appendf(output, c!("    %s\n"), stmt.line);
@@ -354,9 +352,9 @@ pub unsafe fn dump_asm_funcs(output: *mut String_Builder, asm_funcs: *const [Asm
 }
 
 pub unsafe fn dump_program(output: *mut String_Builder, p: *const Program) {
-    dump_funcs(output, da_slice((*p).funcs));
-    dump_asm_funcs(output, da_slice((*p).asm_funcs));
-    dump_extrns(output, da_slice((*p).extrns));
-    dump_globals(output, da_slice((*p).globals));
-    dump_data_section(output, da_slice((*p).data));
+    dump_funcs(output, (*p).funcs);
+    dump_asm_funcs(output, (*p).asm_funcs);
+    dump_extrns(output, (*p).extrns);
+    dump_globals(output, (*p).globals);
+    dump_data_section(output,(*p).data);
 }

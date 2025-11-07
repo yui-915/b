@@ -56,7 +56,7 @@ pub unsafe fn load_arg_to_reg(arg: Arg, reg: *const c_char,output: *mut String_B
     };
 }
 
-pub unsafe fn generate_function(name: *const c_char, name_loc: Loc, func_index: usize, params_count: usize, auto_vars_count: usize, body: *const [OpWithLocation], scope_events: *const [ScopeEvent], debug: bool, output: *mut String_Builder, os: Os) {
+pub unsafe fn generate_function(name: *const c_char, name_loc: Loc, func_index: usize, params_count: usize, auto_vars_count: usize, body: Array<OpWithLocation>, scope_events: Array<ScopeEvent>, debug: bool, output: *mut String_Builder, os: Os) {
     let stack_size = align_bytes(auto_vars_count * 8, 16);
     match os {
         Os::Linux | Os::Windows => {
@@ -112,15 +112,13 @@ pub unsafe fn generate_function(name: *const c_char, name_loc: Loc, func_index: 
     }
 
     let mut proccessed_scope_events = 0;
-    for i in 0..body.len() {
-        let op = (*body)[i];
-
+    for op in body.iter() {
         if debug {
             sb_appendf(output, c!("    .loc %lld %lld\n"), func_index, op.loc.line_number);
 
             for j in proccessed_scope_events..op.scope_events_count {
                 // TODO: duplicate code
-                match (*scope_events)[j] {
+                match *scope_events.at(j) {
                     ScopeEvent::Declare    {  ..   } => {}
                     ScopeEvent::BlockBegin { index } => {
                         match os {
@@ -309,9 +307,9 @@ pub unsafe fn generate_function(name: *const c_char, name_loc: Loc, func_index: 
             Os::Darwin              => sb_appendf(output, c!( "L%s_end:\n"), name),
         };
 
-        for i in proccessed_scope_events..scope_events.len() {
+        for i in proccessed_scope_events..scope_events.count {
             // TODO: duplicate code
-            match (*scope_events)[i] {
+            match *scope_events.at(i) {
                 ScopeEvent::Declare    {  ..   } => {}
                 ScopeEvent::BlockBegin { index } => {
                     match os {
@@ -330,16 +328,14 @@ pub unsafe fn generate_function(name: *const c_char, name_loc: Loc, func_index: 
     }
 }
 
-pub unsafe fn generate_funcs(output: *mut String_Builder, funcs: *const [Func], debug: bool, os: Os) {
-    for i in 0..funcs.len() {
-        let func = (*funcs)[i];
-        generate_function(func.name, func.name_loc, i, func.params_count, func.auto_vars_count, da_slice(func.body), da_slice(func.scope_events), debug, output, os);
+pub unsafe fn generate_funcs(output: *mut String_Builder, funcs: Array<Func>, debug: bool, os: Os) {
+    for (i, func) in funcs.iter().enumerate() {
+        generate_function(func.name, func.name_loc, i, func.params_count, func.auto_vars_count, func.body, func.scope_events, debug, output, os);
     }
 }
 
-pub unsafe fn generate_asm_funcs(output: *mut String_Builder, asm_funcs: *const [AsmFunc], os: Os) {
-    for i in 0..asm_funcs.len() {
-        let asm_func = (*asm_funcs)[i];
+pub unsafe fn generate_asm_funcs(output: *mut String_Builder, asm_funcs: Array<AsmFunc>, os: Os) {
+    for asm_func in asm_funcs.iter() {
         match os {
             Os::Linux | Os::Windows => {
                 sb_appendf(output, c!(".global %s\n"), asm_func.name);
@@ -358,9 +354,8 @@ pub unsafe fn generate_asm_funcs(output: *mut String_Builder, asm_funcs: *const 
     }
 }
 
-pub unsafe fn generate_globals(output: *mut String_Builder, globals: *const [Global], os: Os) {
-    for i in 0..globals.len() {
-        let global = (*globals)[i];
+pub unsafe fn generate_globals(output: *mut String_Builder, globals: Array<Global>, os: Os) {
+    for global in globals.iter() {
         match os {
             Os::Linux | Os::Windows => {
                 sb_appendf(output, c!(".global %s\n"), global.name);
@@ -404,14 +399,14 @@ pub unsafe fn generate_globals(output: *mut String_Builder, globals: *const [Glo
     }
 }
 
-pub unsafe fn generate_data_section(output: *mut String_Builder, data: *const [u8]) {
-    if data.len() > 0 {
+pub unsafe fn generate_data_section(output: *mut String_Builder, data: Array<u8>) {
+    if data.count > 0 {
         sb_appendf(output, c!("dat: .byte "));
-        for i in 0..data.len() {
+        for (i, byte) in data.iter().enumerate() {
             if i > 0 {
                 sb_appendf(output, c!(","));
             }
-            sb_appendf(output, c!("0x%02X"), (*data)[i] as c_uint);
+            sb_appendf(output, c!("0x%02X"), byte as c_uint);
         }
         sb_appendf(output, c!("\n"));
     }
@@ -715,14 +710,14 @@ pub unsafe fn generate_program(
         Os::Darwin => sb_appendf(output, c!(".text\n")),
         Os::Linux | Os::Windows => sb_appendf(output, c!(".section .text\n")),
     };
-    generate_funcs(output, da_slice((*program).funcs), debug, os);
-    generate_asm_funcs(output, da_slice((*program).asm_funcs), os);
+    generate_funcs(output, (*program).funcs, debug, os);
+    generate_asm_funcs(output, (*program).asm_funcs, os);
     match os {
         Os::Darwin => sb_appendf(output, c!(".data\n")),
         Os::Linux | Os::Windows => sb_appendf(output, c!(".section .data\n")),
     };
-    generate_data_section(output, da_slice((*program).data));
-    generate_globals(output, da_slice((*program).globals), os);
+    generate_data_section(output, (*program).data);
+    generate_globals(output, (*program).globals, os);
 
     let output_asm_path = temp_sprintf(c!("%s.s"), garbage_base);
     write_entire_file(output_asm_path, (*output).items as *const c_void, (*output).count)?;

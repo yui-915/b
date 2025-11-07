@@ -818,7 +818,7 @@ mod ops {
 }
 
 pub unsafe fn generate_function(name: *const c_char, loc: Loc, params_count: usize, auto_vars_count: usize,
-                                body: *const [OpWithLocation], out: *mut String_Builder,
+                                body: Array<OpWithLocation>, out: *mut String_Builder,
                                 asm: *mut Assembler) {
     (*asm).frame_sz = 0;
     let fun_addr = (*out).count as u16;
@@ -826,7 +826,7 @@ pub unsafe fn generate_function(name: *const c_char, loc: Loc, params_count: usi
 
     // prepare function labels for each op and the end of the function
     let mut op_addresses: Array<usize> = zeroed();
-    for _ in 0..=body.len() {
+    for _ in 0..=body.count {
         let idx = (*asm).addresses.count;
         da_append(&mut op_addresses, idx);
 
@@ -859,11 +859,10 @@ pub unsafe fn generate_function(name: *const c_char, loc: Loc, params_count: usi
         instr16(out, STA, ABS_X, STACK_PAGE + stack_size as u16 - 2*i);
     }
 
-    for i in 0..body.len() {
+    for (i, op) in body.iter().enumerate() {
         let addr_idx = *op_addresses.at(i);
         *(*asm).addresses.at(addr_idx) = (*out).count as u16; // update op address
 
-        let op = (*body)[i];
         match op.opcode {
             Op::Bogus => unreachable!("bogus-amogus"),
             Op::Return {arg} => {
@@ -873,7 +872,7 @@ pub unsafe fn generate_function(name: *const c_char, loc: Loc, params_count: usi
 
                 // jump to ret statement
                 instr0(out, JMP, ABS);
-                add_reloc(out, RelocationKind::Address{idx: *op_addresses.at(body.len()),
+                add_reloc(out, RelocationKind::Address{idx: *op_addresses.at(body.count),
                                                        relative: false}, asm);
             },
             Op::Store {index, arg} => {
@@ -1380,7 +1379,7 @@ pub unsafe fn generate_function(name: *const c_char, loc: Loc, params_count: usi
     instr8(out, LDA, IMM, 0);
     instr(out, TAY);
 
-    let addr_idx = *op_addresses.at(body.len());
+    let addr_idx = *op_addresses.at(body.count);
     *(*asm).addresses.at(addr_idx) = (*out).count as u16;
 
     if stack_size > 0 {
@@ -1392,9 +1391,9 @@ pub unsafe fn generate_function(name: *const c_char, loc: Loc, params_count: usi
     instr(out, RTS);
 }
 
-pub unsafe fn generate_funcs(out: *mut String_Builder, funcs: *const [Func], asm: *mut Assembler) {
-    for i in 0..funcs.len() {
-        generate_function((*funcs)[i].name, (*funcs)[i].name_loc, (*funcs)[i].params_count, (*funcs)[i].auto_vars_count, da_slice((*funcs)[i].body), out, asm);
+pub unsafe fn generate_funcs(out: *mut String_Builder, funcs: Array<Func>, asm: *mut Assembler) {
+    for func in funcs.iter() {
+        generate_function(func.name, func.name_loc, func.params_count, func.auto_vars_count, func.body, out, asm);
     }
 }
 
@@ -1454,27 +1453,23 @@ pub unsafe fn apply_relocations(out: *mut String_Builder, data_start: u16, asm: 
     }
 }
 
-pub unsafe fn generate_extrns(_out: *mut String_Builder, extrns: *const [*const c_char],
-                              funcs: *const [Func], globals: *const [Global],
-                              asm_funcs: *const [AsmFunc], _asm: *mut Assembler) {
-    'skip_function_or_global: for i in 0..extrns.len() {
+pub unsafe fn generate_extrns(_out: *mut String_Builder, extrns: Array<*const c_char>,
+                              funcs: Array<Func>, globals: Array<Global>,
+                              asm_funcs: Array<AsmFunc>, _asm: *mut Assembler) {
+    'skip_function_or_global: for name in extrns.iter() {
         // assemble a few "stdlib" functions which can't be programmed in B
-        let name = (*extrns)[i];
-        for j in 0..funcs.len() {
-            let func = (*funcs)[j].name;
-            if strcmp(func, name) == 0 {
+        for func in funcs.iter() {
+            if strcmp(func.name, name) == 0 {
                 continue 'skip_function_or_global
             }
         }
-        for j in 0..globals.len() {
-            let global = (*globals)[j].name;
-            if strcmp(global, name) == 0 {
+        for global in globals.iter() {
+            if strcmp(global.name, name) == 0 {
                 continue 'skip_function_or_global
             }
         }
-        for j in 0..asm_funcs.len() {
-            let func = (*asm_funcs)[j].name;
-            if strcmp(func, name) == 0 {
+        for func in asm_funcs.iter() {
+            if strcmp(func.name, name) == 0 {
                 continue 'skip_function_or_global
             }
         }
@@ -1484,9 +1479,8 @@ pub unsafe fn generate_extrns(_out: *mut String_Builder, extrns: *const [*const 
     }
 }
 
-pub unsafe fn generate_globals(out: *mut String_Builder, globals: *mut [Global], asm: *mut Assembler) {
-    for i in 0..globals.len() {
-        let global = (*globals)[i];
+pub unsafe fn generate_globals(out: *mut String_Builder, globals: Array<Global>, asm: *mut Assembler) {
+    for global in globals.iter() {
         add_external(global.name, (*out).count as u16, global.name_loc, asm);
 
         if global.is_vec {
@@ -1511,9 +1505,9 @@ pub unsafe fn generate_globals(out: *mut String_Builder, globals: *mut [Global],
     }
 }
 
-pub unsafe fn generate_data_section(out: *mut String_Builder, data: *const [u8]) {
-    for i in 0..data.len() {
-        write_byte(out, (*data)[i]);
+pub unsafe fn generate_data_section(out: *mut String_Builder, data: Array<u8>) {
+    for byte in data.iter() {
+        write_byte(out, byte);
     }
 }
 
@@ -1524,11 +1518,9 @@ pub unsafe fn generate_entry(out: *mut String_Builder, asm: *mut Assembler) {
     instr16(out, JMP, IND, 0xFFFC);
 }
 
-pub unsafe fn generate_asm_funcs(out: *mut String_Builder, asm_funcs: *const [AsmFunc],
+pub unsafe fn generate_asm_funcs(out: *mut String_Builder, asm_funcs: Array<AsmFunc>,
                                  asm: *mut Assembler) {
-    for i in 0..asm_funcs.len() {
-        let asm_func = (*asm_funcs)[i];
-
+    for asm_func in asm_funcs.iter() {
         let fun_addr = (*out).count as u16;
         add_external(asm_func.name, fun_addr, asm_func.name_loc, asm);
 
@@ -1605,13 +1597,13 @@ pub unsafe fn generate_program(
     generate_entry(out, &mut asm);
     asm.code_start = (*gen).load_offset as u16;
 
-    generate_funcs(out, da_slice((*p).funcs), &mut asm);
-    generate_asm_funcs(out, da_slice((*p).asm_funcs), &mut asm);
-    generate_extrns(out, da_slice((*p).extrns), da_slice((*p).funcs), da_slice((*p).globals), da_slice((*p).asm_funcs), &mut asm);
+    generate_funcs(out, (*p).funcs, &mut asm);
+    generate_asm_funcs(out, (*p).asm_funcs, &mut asm);
+    generate_extrns(out, (*p).extrns, (*p).funcs, (*p).globals, (*p).asm_funcs, &mut asm);
 
     let data_start = (*gen).load_offset as u16 + (*out).count as u16;
-    generate_data_section(out, da_slice((*p).data));
-    generate_globals(out, da_slice((*p).globals), &mut asm);
+    generate_data_section(out, (*p).data);
+    generate_globals(out, (*p).globals, &mut asm);
 
     log(Log_Level::INFO, c!("Generated size: 0x%x"), (*out).count as c_uint);
     apply_relocations(out, data_start, &mut asm);

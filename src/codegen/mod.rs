@@ -12,7 +12,7 @@ macro_rules! codegens {
 
             $(
                 crate::codegen::$codegen::get_apis(&mut apis);
-                register_apis(&mut targets, da_slice(apis), c!(stringify!($codegen)))?;
+                register_apis(&mut targets, apis, c!(stringify!($codegen)))?;
                 apis.count = 0;
             )*
 

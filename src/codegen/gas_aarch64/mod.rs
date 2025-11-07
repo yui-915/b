@@ -127,7 +127,7 @@ pub unsafe fn load_arg_to_reg(arg: Arg, reg: *const c_char, output: *mut String_
     };
 }
 
-pub unsafe fn generate_function(name: *const c_char, _name_loc: Loc, params_count: usize, auto_vars_count: usize, os: Os, variadics: *const [(*const c_char, Variadic)], body: *const [OpWithLocation], output: *mut String_Builder) {
+pub unsafe fn generate_function(name: *const c_char, _name_loc: Loc, params_count: usize, auto_vars_count: usize, os: Os, variadics: Array<(*const c_char, Variadic)>, body: Array<OpWithLocation>, output: *mut String_Builder) {
     let stack_size = align_bytes(auto_vars_count*8, 16);
     match os {
         Os::Linux => {
@@ -163,8 +163,7 @@ pub unsafe fn generate_function(name: *const c_char, _name_loc: Loc, params_coun
         sb_appendf(output, c!("    str %s, [x29, -%zu]\n"), reg, below_index*8);
     }
 
-    for i in 0..body.len() {
-        let op = (*body)[i];
+    for op in body.iter() {
         match op.opcode {
             Op::Bogus => unreachable!("bogus-amogus"),
             Op::Return {arg} => {
@@ -394,34 +393,33 @@ pub unsafe fn generate_function(name: *const c_char, _name_loc: Loc, params_coun
     sb_appendf(output, c!("    ret\n"));
 }
 
-pub unsafe fn generate_funcs(output: *mut String_Builder, funcs: *const [Func], variadics: *const [(*const c_char, Variadic)], os: Os) {
+pub unsafe fn generate_funcs(output: *mut String_Builder, funcs: Array<Func>, variadics: Array<(*const c_char, Variadic)>, os: Os) {
     sb_appendf(output, c!(".text\n"));
-    for i in 0..funcs.len() {
-        generate_function((*funcs)[i].name, (*funcs)[i].name_loc, (*funcs)[i].params_count, (*funcs)[i].auto_vars_count, os, variadics, da_slice((*funcs)[i].body), output);
+    for func in funcs.iter() {
+        generate_function(func.name, func.name_loc, func.params_count, func.auto_vars_count, os, variadics, func.body, output);
     }
 }
 
-pub unsafe fn generate_data_section(output: *mut String_Builder, data: *const [u8]) {
-    if data.len() > 0 {
+pub unsafe fn generate_data_section(output: *mut String_Builder, data: Array<u8>) {
+    if data.count > 0 {
         sb_appendf(output, c!(".data\n"));
         sb_appendf(output, c!(".dat: .byte "));
-        for i in 0..data.len() {
+        for (i, byte) in data.iter().enumerate() {
             if i > 0 {
                 sb_appendf(output, c!(","));
             }
-            sb_appendf(output, c!("0x%02X"), (*data)[i] as c_uint);
+            sb_appendf(output, c!("0x%02X"), byte as c_uint);
         }
         sb_appendf(output, c!("\n"));
     }
 }
 
-pub unsafe fn generate_globals(output: *mut String_Builder, globals: *const [Global], os: Os) {
-    if globals.len() > 0 {
+pub unsafe fn generate_globals(output: *mut String_Builder, globals: Array<Global>, os: Os) {
+    if globals.count > 0 {
         // TODO: consider splitting globals into bss and data sections,
         // depending on whether it's zero
         sb_appendf(output, c!(".data\n"));
-        for i in 0..globals.len() {
-            let global = (*globals)[i];
+        for global in globals.iter() {
             match os {
                 Os::Linux => {
                     sb_appendf(output, c!(".global %s\n"), global.name);
@@ -468,9 +466,8 @@ pub unsafe fn generate_globals(output: *mut String_Builder, globals: *const [Glo
     }
 }
 
-pub unsafe fn generate_asm_funcs(output: *mut String_Builder, asm_funcs: *const [AsmFunc], os: Os) {
-    for i in 0..asm_funcs.len() {
-        let asm_func = (*asm_funcs)[i];
+pub unsafe fn generate_asm_funcs(output: *mut String_Builder, asm_funcs: Array<AsmFunc>, os: Os) {
+    for asm_func in asm_funcs.iter() {
         match os {
             Os::Linux => {
                 sb_appendf(output, c!(".global %s\n"), asm_func.name);
@@ -570,10 +567,10 @@ pub unsafe fn generate_program(
 
     if debug { todo!("Debug information for aarch64") }
 
-    generate_funcs(output, da_slice((*program).funcs), da_slice((*program).variadics), os);
-    generate_asm_funcs(output, da_slice((*program).asm_funcs), os);
-    generate_globals(output, da_slice((*program). globals), os);
-    generate_data_section(output, da_slice((*program).data));
+    generate_funcs(output, (*program).funcs, (*program).variadics, os);
+    generate_asm_funcs(output, (*program).asm_funcs, os);
+    generate_globals(output, (*program).globals, os);
+    generate_data_section(output, (*program).data);
 
     let output_asm_path = temp_sprintf(c!("%s.s"), garbage_base);
     write_entire_file(output_asm_path, (*output).items as *const c_void, (*output).count)?;

@@ -14,9 +14,8 @@ pub struct Target {
 }
 
 impl Target {
-    pub unsafe fn by_name(targets: *const [Target], name: *const c_char) -> Option<Target> {
-        for i in 0..targets.len() {
-            let target = (*targets)[i];
+    pub unsafe fn by_name(targets: Array<Target>, name: *const c_char) -> Option<Target> {
+        for target in targets.iter() {
             if strcmp(target.name(), name) == 0 {
                 return Some(target);
             }
@@ -61,9 +60,8 @@ impl Target {
     }
 }
 
-pub unsafe fn register_apis(targets: *mut Array<Target>, apis: *const [TargetAPI], codegen_name: *const c_char) -> Option<()> {
-    for i in 0..apis.len() {
-        let api = (*apis)[i];
+pub unsafe fn register_apis(targets: *mut Array<Target>, apis: Array<TargetAPI>, codegen_name: *const c_char) -> Option<()> {
+    for api in apis.iter() {
         for target in (*targets).iter() {
             if strcmp(target.name(), api.name()) == 0 {
                 if strcmp(target.codegen_name, codegen_name) == 0 {
