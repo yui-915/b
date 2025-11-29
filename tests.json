@@ -2147,5 +2147,61 @@
         "expected_stdout": "",
         "state": "Disabled",
         "comment": "Doesn't make sense for this target"
+    },
+    {
+        "case": "auto_initializer",
+        "target": "gas-x86_64-linux",
+        "expected_stdout": "69\nxs[0]: 1\nxs[1]: 4\nxs[2]: 9\nxs[3]: 16\nxs[4]: 25\n",
+        "state": "Enabled",
+        "comment": ""
+    },
+    {
+        "case": "auto_initializer",
+        "target": "ilasm-mono",
+        "expected_stdout": "",
+        "state": "Enabled",
+        "comment": "Failed to build on record"
+    },
+    {
+        "case": "auto_initializer",
+        "target": "gas-aarch64-linux",
+        "expected_stdout": "69\nxs[0]: 1\nxs[1]: 4\nxs[2]: 9\nxs[3]: 16\nxs[4]: 25\n",
+        "state": "Enabled",
+        "comment": ""
+    },
+    {
+        "case": "auto_initializer",
+        "target": "gas-aarch64-darwin",
+        "expected_stdout": "69\nxs[0]: 1\nxs[1]: 4\nxs[2]: 9\nxs[3]: 16\nxs[4]: 25\n",
+        "state": "Enabled",
+        "comment": ""
+    },
+    {
+        "case": "auto_initializer",
+        "target": "gas-x86_64-windows",
+        "expected_stdout": "69\r\nxs[0]: 1\r\nxs[1]: 4\r\nxs[2]: 9\r\nxs[3]: 16\r\nxs[4]: 25\r\n",
+        "state": "Enabled",
+        "comment": ""
+    },
+    {
+        "case": "auto_initializer",
+        "target": "gas-x86_64-darwin",
+        "expected_stdout": "69\nxs[0]: 1\nxs[1]: 4\nxs[2]: 9\nxs[3]: 16\nxs[4]: 25\n",
+        "state": "Enabled",
+        "comment": ""
+    },
+    {
+        "case": "auto_initializer",
+        "target": "6502-posix",
+        "expected_stdout": "69\r\nxs[0]: 1\r\nxs[1]: 4\r\nxs[2]: 9\r\nxs[3]: 16\r\nxs[4]: 25\r\n",
+        "state": "Enabled",
+        "comment": ""
+    },
+    {
+        "case": "auto_initializer",
+        "target": "uxn",
+        "expected_stdout": "69\nxs[0]: 1\nxs[1]: 4\nxs[2]: 9\nxs[3]: 16\nxs[4]: 25\n",
+        "state": "Enabled",
+        "comment": ""
     }
 ]

@@ -56,6 +56,20 @@ Some targets like `gas-aarch64-darwin` have a different calling convention for v
 this is needed to make the compiler use the correct calling convention. \
 the syntax is `__variadic__(function_name, number_of_fixed_args);`
 
+## C-style initializers
+
+```c
+main() {
+    auto xs 5 = {1, 2, 3, 4, 5};
+    auto i = 0; while (i < 5) {
+        printf("xs[%lld] = %lld\n", i, xs[i]);
+        i += 1;
+    }
+}
+```
+
+Allows directly initializing automatic variables as you declare them.
+
 <!--
     TODO: hex-literals and C++ style comments are currently considered deviations
     and not extensions, thus disabled in historical mode, which is a bug.

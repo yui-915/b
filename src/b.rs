@@ -725,7 +725,7 @@ pub unsafe fn compile_statement(l: *mut Lexer, c: *mut Compiler) -> Option<()> {
                 let name = arena::strdup(&mut (*c).arena, (*l).string);
                 let index = allocate_auto_var(&mut (*c).auto_vars_ator);
                 declare_var(c, name, (*l).loc, Storage::Auto {index})?;
-                get_and_expect_tokens(l, &[Token::SemiColon, Token::Comma, Token::IntLit, Token::CharLit])?;
+                get_and_expect_tokens(l, &[Token::SemiColon, Token::Comma, Token::IntLit, Token::CharLit, Token::Eq])?;
                 if (*l).token == Token::IntLit || (*l).token == Token::CharLit {
                     let size = (*l).int_number as usize;
                     if size == 0 {
@@ -739,6 +739,34 @@ pub unsafe fn compile_statement(l: *mut Lexer, c: *mut Compiler) -> Option<()> {
                     //   See TODO(2025-06-05 17:45:36)
                     let arg = Arg::RefAutoVar(index + size);
                     push_opcode(Op::AutoAssign {index, arg}, (*l).loc, c);
+                    get_and_expect_tokens(l, &[Token::SemiColon, Token::Comma, Token::Eq])?;
+
+                    if (*l).token == Token::Eq {
+                        let eq_loc = (*l).loc;
+                        get_and_expect_token(l, Token::OCurly)?;
+                        let saved_point = (*l).parse_point;
+                        lexer::get_token(l)?;
+                        if (*l).token != Token::CCurly {
+                            (*l).parse_point = saved_point;
+                            let mut count = 0;
+                            while (*l).token != Token::CCurly {
+                                let loc = (*l).loc;
+                                let (arg, _) = compile_expression(l, c)?;
+                                push_opcode(Op::AutoAssign {index: index + size - count, arg}, loc, c);
+                                count += 1;
+                                get_and_expect_tokens(l, &[Token::CCurly, Token::Comma])?;
+                            }
+                            if count > size {
+                                diagf!(eq_loc, c!("ERROR: Automatic vector of size %llu cannot be initialized with %llu elements\n"), size, count);
+                                bump_error_count(c)?;
+                            }
+                        }
+                        get_and_expect_tokens(l, &[Token::SemiColon, Token::Comma])?;
+                    }
+                } else if (*l).token == Token::Eq {
+                    let loc = (*l).loc;
+                    let (arg, _) = compile_expression(l, c)?;
+                    push_opcode(Op::AutoAssign {index, arg}, loc, c);
                     get_and_expect_tokens(l, &[Token::SemiColon, Token::Comma])?;
                 }
             }
