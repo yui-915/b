@@ -789,6 +789,64 @@ pub unsafe fn compile_statement(l: *mut Lexer, c: *mut Compiler) -> Option<()> {
             push_opcode(Op::Label {label: out_label}, (*l).loc, c);
             Some(())
         }
+        Token::For => {
+            scope_push(&mut (*c).vars);
+            get_and_expect_token(l, Token::OParen)?;
+
+            let cond_label = allocate_label_index(c);
+            let iter_label = allocate_label_index(c);
+            let body_label = allocate_label_index(c);
+            let out_label = allocate_label_index(c);
+
+            let saved_point = (*l).parse_point;
+            lexer::get_token(l)?;
+
+            if (*l).token == Token::Auto {
+                get_and_expect_token(l, Token::ID)?;
+                let name = arena::strdup(&mut (*c).arena, (*l).string);
+                let index = allocate_auto_var(&mut (*c).auto_vars_ator);
+                declare_var(c, name, (*l).loc, Storage::Auto {index})?;
+                get_and_expect_token(l, Token::Eq)?;
+                let loc = (*l).loc;
+                let (arg, _) = compile_expression(l, c)?;
+                push_opcode(Op::AutoAssign {index, arg}, loc, c);
+                get_and_expect_token(l, Token::SemiColon)?;
+            } else if (*l).token != Token::SemiColon {
+                (*l).parse_point = saved_point;
+                compile_expression(l, c)?;
+                get_and_expect_token(l, Token::SemiColon)?;
+            }
+
+            push_opcode(Op::Label {label: cond_label}, (*l).loc, c);
+                let saved_point = (*l).parse_point;
+                lexer::get_token(l);
+                if (*l).token != Token::SemiColon {
+                    (*l).parse_point = saved_point;
+                    let (arg, _) = compile_expression(l, c)?;
+                    push_opcode(Op::JmpIfNotLabel{label: out_label, arg}, (*l).loc, c);
+                    get_and_expect_token(l, Token::SemiColon)?;
+                }
+            push_opcode(Op::JmpLabel{label: body_label}, (*l).loc, c);
+
+            push_opcode(Op::Label {label: iter_label}, (*l).loc, c);
+                let saved_point = (*l).parse_point;
+                lexer::get_token(l);
+                if (*l).token != Token::CParen {
+                    (*l).parse_point = saved_point;
+                    compile_expression(l, c)?;
+                    get_and_expect_token(l, Token::CParen)?;
+                }
+            push_opcode(Op::JmpLabel{label: cond_label}, (*l).loc, c);
+
+
+            push_opcode(Op::Label {label: body_label}, (*l).loc, c);
+                compile_statement(l, c)?;
+            push_opcode(Op::JmpLabel{label: iter_label}, (*l).loc, c);
+            push_opcode(Op::Label {label: out_label}, (*l).loc, c);
+
+            scope_pop(&mut (*c).vars);
+            Some(())
+        }
         Token::Return => {
             get_and_expect_tokens(l, &[Token::SemiColon, Token::OParen])?;
             if (*l).token == Token::SemiColon {

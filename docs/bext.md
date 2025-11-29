@@ -56,6 +56,19 @@ Some targets like `gas-aarch64-darwin` have a different calling convention for v
 this is needed to make the compiler use the correct calling convention. \
 the syntax is `__variadic__(function_name, number_of_fixed_args);`
 
+## C-style for loops
+```c
+main() {
+    for (auto i = 2; i < 5; i++) {
+      printf("%lld^2 = %lld\n", i, i*i);
+    }
+
+    for(;;) printf("infinite loop\n");
+}
+```
+
+Very useful for iterating over a range of numbers.
+
 <!--
     TODO: hex-literals and C++ style comments are currently considered deviations
     and not extensions, thus disabled in historical mode, which is a bug.

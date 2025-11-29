@@ -2147,5 +2147,61 @@
         "expected_stdout": "",
         "state": "Disabled",
         "comment": "Doesn't make sense for this target"
+    },
+    {
+        "case": "for_loop",
+        "target": "ilasm-mono",
+        "expected_stdout": "",
+        "state": "Enabled",
+        "comment": "Failed to build on record"
+    },
+    {
+        "case": "for_loop",
+        "target": "gas-aarch64-linux",
+        "expected_stdout": "i: 0\ni: 1\ni: 2\ni outside: 69\nj: 3\nj: 5\nj: 7\nx: 2\nx: 4\nx: 8\ny: 69\ny: 70\ny: 71\nz: 100\nz: 101\nz: 102\noh no!\n",
+        "state": "Enabled",
+        "comment": ""
+    },
+    {
+        "case": "for_loop",
+        "target": "gas-aarch64-darwin",
+        "expected_stdout": "i: 0\ni: 1\ni: 2\ni outside: 69\nj: 3\nj: 5\nj: 7\nx: 2\nx: 4\nx: 8\ny: 69\ny: 70\ny: 71\nz: 100\nz: 101\nz: 102\noh no!\n",
+        "state": "Enabled",
+        "comment": ""
+    },
+    {
+        "case": "for_loop",
+        "target": "gas-x86_64-linux",
+        "expected_stdout": "i: 0\ni: 1\ni: 2\ni outside: 69\nj: 3\nj: 5\nj: 7\nx: 2\nx: 4\nx: 8\ny: 69\ny: 70\ny: 71\nz: 100\nz: 101\nz: 102\noh no!\n",
+        "state": "Enabled",
+        "comment": ""
+    },
+    {
+        "case": "for_loop",
+        "target": "gas-x86_64-windows",
+        "expected_stdout": "i: 0\r\ni: 1\r\ni: 2\r\ni outside: 69\r\nj: 3\r\nj: 5\r\nj: 7\r\nx: 2\r\nx: 4\r\nx: 8\r\ny: 69\r\ny: 70\r\ny: 71\r\nz: 100\r\nz: 101\r\nz: 102\r\noh no!\r\n",
+        "state": "Enabled",
+        "comment": ""
+    },
+    {
+        "case": "for_loop",
+        "target": "gas-x86_64-darwin",
+        "expected_stdout": "i: 0\ni: 1\ni: 2\ni outside: 69\nj: 3\nj: 5\nj: 7\nx: 2\nx: 4\nx: 8\ny: 69\ny: 70\ny: 71\nz: 100\nz: 101\nz: 102\noh no!\n",
+        "state": "Enabled",
+        "comment": ""
+    },
+    {
+        "case": "for_loop",
+        "target": "6502-posix",
+        "expected_stdout": "i: 0\r\ni: 1\r\ni: 2\r\ni outside: 69\r\nj: 3\r\nj: 5\r\nj: 7\r\nx: 2\r\nx: 4\r\nx: 8\r\ny: 69\r\ny: 70\r\ny: 71\r\nz: 100\r\nz: 101\r\nz: 102\r\noh no!\r\n",
+        "state": "Enabled",
+        "comment": ""
+    },
+    {
+        "case": "for_loop",
+        "target": "uxn",
+        "expected_stdout": "i: 0\ni: 1\ni: 2\ni outside: 69\nj: 3\nj: 5\nj: 7\nx: 2\nx: 4\nx: 8\ny: 69\ny: 70\ny: 71\nz: 100\nz: 101\nz: 102\noh no!\n",
+        "state": "Enabled",
+        "comment": ""
     }
 ]
